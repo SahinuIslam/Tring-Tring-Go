@@ -1,7 +1,7 @@
 # Tring-Tring-Go
 # 🌍 TringTringGo — Smart Travel Suggestion System
 
-TripGuide is a web-based travel recommendation platform designed to help users explore destinations, discover local foods, and plan trips effortlessly.  
+TringTringGO is a web-based travel recommendation platform designed to help users explore destinations, discover local foods, and plan trips effortlessly.  
 It includes an admin dashboard, merchant portal, and an interactive chatbot for instant travel support — making it a complete digital trip companion.
 
 ---
