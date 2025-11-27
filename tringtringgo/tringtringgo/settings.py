@@ -37,8 +37,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'core'
+
+    'rest_framework',  # for Django REST API
+    'core',            # your existing app
+    'accounts',        # the app we just created
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
