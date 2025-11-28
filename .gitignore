@@ -1,6 +1,32 @@
-db.sqlite3
+# --- Python Specific ---
 __pycache__/
 *.pyc
+*.pyo
+
+# --- Database ---
+db.sqlite3
+db.sqlite3-journal
+
+# --- Virtual Environments ---
+# Depending on what you named it, cover all bases:
+venv/
+env/
+.venv/
+
+# --- Environment Variables (Secrets) ---
+.env
+
+# --- Editor / IDE Settings ---
 .vscode/
-venv/.vscode/
+.idea/
+
+# --- Operating System Files ---
+.DS_Store
+Thumbs.db
+
+# --- Media ---
+# Usually, we don't upload user-uploaded images to GitHub
+media/
+
+# --- Your Custom Scripts ---
 project-tree.txt
