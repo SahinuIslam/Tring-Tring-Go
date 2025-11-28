@@ -44,7 +44,6 @@ INSTALLED_APPS = [
 #Created_Apps
     'core',            # your existing app
     'accounts',        # the app we just created
-    'posts',
 ]
 
 

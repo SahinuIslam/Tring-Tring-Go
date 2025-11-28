@@ -6,7 +6,7 @@ IGNORED = {
     ".vscode",
     "env",
     "venv",
-    "migrations",    
+    "migrations",
 }
 
 FILE_IGNORE_EXT = {
@@ -38,12 +38,16 @@ def tree(path, prefix="", out_lines=None):
         connector = "├── " if index < len(items) - 1 else "└── "
 
         line = prefix + connector + item + ("/" if os.path.isdir(full_path) else "")
-        print(line)
+        # REMOVED: print(line) 
         out_lines.append(line)
 
         if os.path.isdir(full_path):
-            if item == "migrations":
-                continue
+            # The 'migrations' check in the loop body is redundant because 'migrations' 
+            # is already in IGNORED, so the 'continue' will not be hit here, 
+            # but we can leave the original structure if you prefer:
+            # if item == "migrations":
+            #     continue
+            
             new_prefix = prefix + ("│   " if index < len(items) - 1 else "    ")
             tree(full_path, new_prefix, out_lines)
 
@@ -54,6 +58,7 @@ if __name__ == "__main__":
     output_file = "project-tree.txt"
     lines = tree(".")
 
+    # Only print the final confirmation message, not the tree itself
     with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
