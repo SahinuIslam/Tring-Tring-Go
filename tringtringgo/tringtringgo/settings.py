@@ -39,8 +39,17 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'rest_framework',  # for Django REST API
+
     'core',            # your existing app
-    'accounts',        # the app we just created
+    
+    'accounts',        # the app we just created   # Contains UserAccount, TravelerProfile, MerchantProfile
+    'locations',       # Contains Area
+    'places',          # Contains Place, SavedPlace
+    'foods',           # Contains FoodItem, PriceUpdate
+    'services',        # Contains Service
+    'community',       # Contains CommunityPost, PostComment, TrafficUpdate
+    'reviews',         # Contains Review
+    
 ]
 
 

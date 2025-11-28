@@ -32,15 +32,29 @@ class TravelerProfile(models.Model):
 
 
 class MerchantProfile(models.Model):
+
+    MERCHANT_TYPES = [
+        ("RESTAURANT", "Restaurant"),
+        ("SHOP", "Shop"),
+        ("MALL", "Mall"),
+        ("SERVICE", "Service"),
+        ("CAFE", "Cafe"),
+        ("STREET_FOOD", "Street Food"),
+        ("HOTEL", "Hotel"),
+        ("OTHER", "Other"),
+    ]
+
     user_account = models.OneToOneField(
         UserAccount,
         on_delete=models.CASCADE,
         related_name="merchant_profile",
     )
 
+    merchant_type = models.CharField(max_length=20, choices=MERCHANT_TYPES, default="OTHER")
     shop_name = models.CharField(max_length=100)
     business_area = models.CharField(max_length=100, blank=True)
     opening_time = models.TimeField(null=True, blank=True)
+    closing_time = models.TimeField(null=True, blank=True)
     years_in_business = models.PositiveIntegerField(default=0)
     description = models.TextField(blank=True)
 

@@ -18,6 +18,6 @@ class TravelerProfileAdmin(admin.ModelAdmin):
 
 @admin.register(MerchantProfile)
 class MerchantProfileAdmin(admin.ModelAdmin):
-    list_display = ("shop_name", "business_area", "is_verified", "years_in_business")
-    list_filter = ("business_area", "is_verified")
+    list_display = ("shop_name", "merchant_type","business_area", "is_verified", "years_in_business")
+    list_filter = ("merchant_type","business_area", "is_verified")
     search_fields = ("shop_name", "user_account__user__username")
