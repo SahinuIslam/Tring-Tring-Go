@@ -58,3 +58,14 @@ class MerchantProfile(models.Model):
     def __str__(self):
         status = "Verified" if self.is_verified else "Unverified"
         return f"{self.shop_name} ({status}) - {self.user_account.user.username}"
+class AdminProfile(models.Model):
+    user_account = models.OneToOneField(
+        UserAccount,
+        on_delete=models.CASCADE,
+        related_name="admin_profile",
+    )
+    area = models.CharField(max_length=100, blank=True)
+    years_in_area = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"AdminProfile({self.user_account.user.username})"

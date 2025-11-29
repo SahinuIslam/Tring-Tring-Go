@@ -1,0 +1,224 @@
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: linear-gradient(135deg, #0f172a, #1d3557);
+  color: #0f172a;
+}
+
+/* Layout: 2 columns on desktop, stacked on mobile */
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr);
+  background: radial-gradient(circle at top left, #38bdf8 0, transparent 55%),
+    radial-gradient(circle at bottom right, #f97316 0, transparent 50%);
+}
+
+@media (max-width: 900px) {
+  .auth-page {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Left card */
+.auth-card {
+  background: rgba(255, 255, 255, 0.97);
+  margin: 2.5rem;
+  border-radius: 24px;
+  padding: 2.5rem 2.75rem;
+  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(16px);
+}
+
+.auth-title {
+  font-size: 2rem;
+  margin: 0 0 0.25rem;
+}
+
+.auth-subtitle {
+  margin: 0 0 1.5rem;
+  color: #64748b;
+}
+
+/* Form */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form-row label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.form-row input,
+.form-row select,
+.form-row textarea {
+  border-radius: 999px;
+  border: 1px solid #cbd5f5;
+  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border 0.15s ease, box-shadow 0.15s ease;
+  background-color: #f8fafc;
+}
+
+.form-row textarea {
+  border-radius: 16px;
+  resize: vertical;
+}
+
+.form-row input:focus,
+.form-row select:focus,
+.form-row textarea:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 1px #0284c7;
+  background-color: #ffffff;
+}
+
+/* Alerts */
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.alert.success {
+  background: #ecfdf3;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.alert.error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+/* Button */
+.primary-btn {
+  margin-top: 0.5rem;
+  border: none;
+  border-radius: 999px;
+  padding: 0.7rem 1.4rem;
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.45);
+  transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
+}
+
+.primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.55);
+}
+
+.primary-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+  box-shadow: none;
+}
+
+/* Footer text */
+.auth-footer {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* Right hero panel */
+.auth-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("https://images.pexels.com/photos/346885/pexels-photo-346885.jpeg");
+  background-size: cover;
+  background-position: center;
+  filter: brightness(0.75);
+}
+
+.auth-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(8, 47, 73, 0.9),
+    rgba(30, 64, 175, 0.8)
+  );
+}
+
+.auth-hero-content {
+  position: relative;
+  z-index: 1;
+  color: #e5f2ff;
+  height: 100%;
+  padding: 3rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.auth-hero-content h2 {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.auth-hero-content p {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.95rem;
+}
+/* Tablet: tighten margins/padding */
+@media (max-width: 900px) {
+  .auth-card {
+    margin: 1.5rem;
+    padding: 2rem;
+  }
+
+  .auth-hero-content {
+    padding: 2rem;
+  }
+}
+
+/* Small phones: full-width card and smaller hero */
+@media (max-width: 600px) {
+  .auth-card {
+    margin: 1rem;
+    padding: 1.5rem 1.25rem;
+    border-radius: 18px;
+  }
+
+  .auth-title {
+    font-size: 1.7rem;
+  }
+
+  .auth-hero {
+    min-height: 220px;
+  }
+
+  .auth-hero-content h2 {
+    font-size: 1.6rem;
+  }
+
+  .auth-hero-content p {
+    font-size: 0.9rem;
+  }
+}
