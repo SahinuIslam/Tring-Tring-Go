@@ -22,9 +22,7 @@ class TravelerProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="traveler_profile",
     )
-    # Where they live
     area = models.CharField(max_length=100, blank=True)
-    # How long they have lived there (for trust/experience)
     years_in_area = models.PositiveIntegerField(default=0)
 
     def __str__(self):
@@ -44,7 +42,6 @@ class MerchantProfile(models.Model):
     years_in_business = models.PositiveIntegerField(default=0)
     description = models.TextField(blank=True)
 
-    # Verification fields
     is_verified = models.BooleanField(default=False)
     verified_by = models.ForeignKey(
         UserAccount,
@@ -58,6 +55,8 @@ class MerchantProfile(models.Model):
     def __str__(self):
         status = "Verified" if self.is_verified else "Unverified"
         return f"{self.shop_name} ({status}) - {self.user_account.user.username}"
+
+
 class AdminProfile(models.Model):
     user_account = models.OneToOneField(
         UserAccount,
@@ -69,3 +68,12 @@ class AdminProfile(models.Model):
 
     def __str__(self):
         return f"AdminProfile({self.user_account.user.username})"
+
+
+class LoginLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_logs")
+    login_time = models.DateTimeField(auto_now_add=True)
+    method = models.CharField(max_length=20)  # "PASSWORD" or "GOOGLE"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.method} - {self.login_time}"

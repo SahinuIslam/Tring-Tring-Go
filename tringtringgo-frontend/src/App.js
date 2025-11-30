@@ -1,10 +1,10 @@
-import React from "react";
-import SignupPage from "./SignupPage";
 import "./App.css";
-
+import SignupPage from "./SignupPage";
+import LoginPage from "./LoginPage";
 
 function App() {
-  return <SignupPage />;
+  const showLogin = true; // change to false to see SignupPage instead
+  return showLogin ? <LoginPage /> : <SignupPage />;
 }
 
 export default App;
