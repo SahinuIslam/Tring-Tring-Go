@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import React, { useState } from "react";
 import { auth, googleProvider } from "./firebase";
 import { signInWithPopup } from "firebase/auth";
@@ -265,9 +266,11 @@ function SignupPage() {
           </button>
         </form>
 
-        <p className="auth-footer">
-          Already have an account? (login page will go here later)
-        </p>
+
+<p className="auth-footer">
+  Already have an account? <Link to="/login">Log in</Link>
+</p>
+
       </div>
 
       <div className="auth-hero">

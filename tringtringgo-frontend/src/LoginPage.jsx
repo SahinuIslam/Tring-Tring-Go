@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import { auth, googleProvider } from "./firebase";
 import { signInWithPopup, sendPasswordResetEmail } from "firebase/auth";
+import { Link } from "react-router-dom";
+
+
+
 
 function LoginPage() {
   const [formData, setFormData] = useState({
@@ -179,9 +183,9 @@ function LoginPage() {
           </button>
         </form>
 
-        <p className="auth-footer">
-          Don’t have an account? (link to signup will go here)
-        </p>
+<p className="auth-footer">
+  Don’t have an account? <Link to="/signup">Sign up</Link>
+</p>
       </div>
 
       <div className="auth-hero">

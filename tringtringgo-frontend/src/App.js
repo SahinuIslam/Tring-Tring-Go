@@ -1,10 +1,19 @@
 import "./App.css";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import SignupPage from "./SignupPage";
 import LoginPage from "./LoginPage";
 
 function App() {
-  const showLogin = true; // change to false to see SignupPage instead
-  return showLogin ? <LoginPage /> : <SignupPage />;
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </Router>
+  );
 }
 
 export default App;
+
