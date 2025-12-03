@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+
+# SQLite DB
+db.sqlite3
+
+# Firebase
+firebase_key.json
+firebase-debug.log
+
+# Node
+node_modules/
