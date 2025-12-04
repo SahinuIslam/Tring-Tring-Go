@@ -1,0 +1,23 @@
+from django.contrib import admin
+from .models import Place, SavedPlace, Review
+
+
+@admin.register(Place)
+class PlaceAdmin(admin.ModelAdmin):
+    list_display = ("name", "area", "category", "average_rating")
+    search_fields = ("name", "area")
+    list_filter = ("category",)
+
+
+@admin.register(SavedPlace)
+class SavedPlaceAdmin(admin.ModelAdmin):
+    list_display = ("traveler", "place", "saved_at")
+    search_fields = ("traveler__user__username", "place__name")
+    list_filter = ("saved_at",)
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ("traveler", "place", "rating", "created_at")
+    list_filter = ("rating", "created_at")
+    search_fields = ("traveler__user__username", "place__name", "title", "text")
