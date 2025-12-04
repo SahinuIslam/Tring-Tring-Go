@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
 
-
 class UserAccount(models.Model):
     ROLE_CHOICES = [
         ("TRAVELER", "Traveler"),
@@ -16,17 +15,25 @@ class UserAccount(models.Model):
         return f"{self.user.username} ({self.role})"
 
 
+
 class TravelerProfile(models.Model):
     user_account = models.OneToOneField(
         UserAccount,
         on_delete=models.CASCADE,
         related_name="traveler_profile",
     )
-    area = models.CharField(max_length=100, blank=True)
+    area = models.ForeignKey(
+        "travel.Area",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="traveler_profiles",
+    )
     years_in_area = models.PositiveIntegerField(default=0)
-
     def __str__(self):
         return f"TravelerProfile for {self.user_account.user.username}"
+
+
 
 
 class MerchantProfile(models.Model):
@@ -37,8 +44,15 @@ class MerchantProfile(models.Model):
     )
 
     shop_name = models.CharField(max_length=100)
-    business_area = models.CharField(max_length=100, blank=True)
+    business_area = models.ForeignKey(
+     "travel.Area",  
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name="merchant_profiles",
+)
     opening_time = models.TimeField(null=True, blank=True)
+    closing_time = models.TimeField(null=True, blank=True)
     years_in_business = models.PositiveIntegerField(default=0)
     description = models.TextField(blank=True)
 
@@ -63,7 +77,13 @@ class AdminProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="admin_profile",
     )
-    area = models.CharField(max_length=100, blank=True)
+    area = models.ForeignKey(
+         "travel.Area",  
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="admin_profiles",
+    )
     years_in_area = models.PositiveIntegerField(default=0)
 
     def __str__(self):

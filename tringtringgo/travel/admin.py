@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Place, SavedPlace, Review
+from .models import Area, Place, SavedPlace, Review
 
 
 @admin.register(Place)
@@ -21,3 +21,5 @@ class ReviewAdmin(admin.ModelAdmin):
     list_display = ("traveler", "place", "rating", "created_at")
     list_filter = ("rating", "created_at")
     search_fields = ("traveler__user__username", "place__name", "title", "text")
+
+admin.site.register(Area)

@@ -1,3 +1,4 @@
+from httpx import request
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -14,9 +15,7 @@ from .models import UserAccount, TravelerProfile, MerchantProfile, AdminProfile
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import logout
-
-
-
+from travel.models import Area
 
 
 
@@ -108,44 +107,29 @@ class LoginAPIView(APIView):
 #Traveler dashboard view
 @csrf_exempt
 @api_view(["GET"])
-@permission_classes([AllowAny])  # we'll auth manually
+@permission_classes([AllowAny])
 def traveler_dashboard(request):
-    """
-    Traveler dashboard API using custom X-User-Token header.
-    """
     token = request.headers.get("X-User-Token")
     if not token:
-        return Response(
-            {"detail": "Not logged in."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
+        return Response({"detail": "Not logged in."}, status=status.HTTP_401_UNAUTHORIZED)
 
-    # In this simple scheme, token == username
     try:
         user = User.objects.get(username=token)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Invalid user token."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
+        return Response({"detail": "Invalid user token."}, status=status.HTTP_401_UNAUTHORIZED)
 
     account, _ = UserAccount.objects.get_or_create(
-        user=user,
-        defaults={"role": "TRAVELER"},
+        user=user, defaults={"role": "TRAVELER"}
     )
 
     if account.role != "TRAVELER":
-        return Response(
-            {"detail": "Traveler access only"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+        return Response({"detail": "Traveler access only"}, status=status.HTTP_403_FORBIDDEN)
 
     profile, _ = TravelerProfile.objects.get_or_create(
-        user_account=account,
-        defaults={"area": "", "years_in_area": 0},
+        user_account=account, defaults={"years_in_area": 0}
     )
 
-    area = profile.area or "Not set"
+    area = profile.area.name if profile.area else "Not set"
     years_in_area = profile.years_in_area
     profile_complete = bool(profile.area and profile.years_in_area > 0)
 
@@ -191,7 +175,7 @@ def merchant_dashboard(request):
     profile = account.merchant_profile
     stats = {
         "shop_name": profile.shop_name,
-        "business_area": profile.business_area or "Not set",
+        "business_area": profile.business_area.name if profile.business_area else "Not set",
         "is_verified": profile.is_verified,
         "years_in_business": profile.years_in_business,
         "status": "Verified" if profile.is_verified else "Pending verification",
@@ -249,40 +233,26 @@ def me_view(request):
 
 @csrf_exempt
 @api_view(["PUT"])
-@permission_classes([AllowAny])  # you can tighten this later
+@permission_classes([AllowAny])
 def traveler_update_profile(request):
-    """
-    Update traveler profile (area, years_in_area) using X-User-Token header.
-    """
     token = request.headers.get("X-User-Token")
     if not token:
-        return Response(
-            {"detail": "Not logged in."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
+        return Response({"detail": "Not logged in."}, status=status.HTTP_401_UNAUTHORIZED)
 
     try:
         user = User.objects.get(username=token)
     except User.DoesNotExist:
-        return Response(
-            {"detail": "Invalid user token."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
+        return Response({"detail": "Invalid user token."}, status=status.HTTP_401_UNAUTHORIZED)
 
-    account, _ = UserAccount.objects.get_or_create(
-        user=user, defaults={"role": "TRAVELER"}
-    )
+    account, _ = UserAccount.objects.get_or_create(user=user, defaults={"role": "TRAVELER"})
     if account.role != "TRAVELER":
-        return Response(
-            {"detail": "Traveler access only"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+        return Response({"detail": "Traveler access only"}, status=status.HTTP_403_FORBIDDEN)
 
     profile, _ = TravelerProfile.objects.get_or_create(
-        user_account=account, defaults={"area": "", "years_in_area": 0}
+        user_account=account, defaults={"years_in_area": 0}
     )
 
-    area = request.data.get("area", "").strip()
+    area_id = request.data.get("area_id")
     years_in_area = request.data.get("years_in_area", profile.years_in_area)
 
     try:
@@ -295,18 +265,27 @@ def traveler_update_profile(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    profile.area = area
+    # Update area if area_id provided
+    if area_id is not None:
+        try:
+            area_id_int = int(area_id)
+            area_obj = Area.objects.get(id=area_id_int)
+            profile.area = area_obj
+        except (ValueError, Area.DoesNotExist):
+            return Response({"detail": "Invalid area_id."}, status=status.HTTP_400_BAD_REQUEST)
+
     profile.years_in_area = years_in_area
     profile.save()
 
     return Response(
         {
-            "area": profile.area or "Not set",
+            "area": profile.area.name if profile.area else "Not set",
             "years_in_area": profile.years_in_area,
             "profile_complete": bool(profile.area and profile.years_in_area > 0),
         },
         status=status.HTTP_200_OK,
     )
+
 
 
 @csrf_exempt

@@ -7,7 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 
 from accounts.models import UserAccount
 from .serializers import SavedPlaceSerializer, PlaceSerializer, ReviewSerializer
-from .models import Place, SavedPlace, Review
+from .models import Place, SavedPlace, Review, Area
+
 
 
 
@@ -234,3 +235,10 @@ def update_review(request, pk):
 
     serializer = ReviewSerializer(review)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def list_areas(request):
+    qs = Area.objects.all().order_by("name")
+    data = [{"id": a.id, "name": a.name} for a in qs]
+    return Response(data)
