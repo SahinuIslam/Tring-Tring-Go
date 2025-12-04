@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { auth, googleProvider } from "./firebase";
 import { signInWithPopup } from "firebase/auth";
 
@@ -9,17 +9,32 @@ function SignupPage() {
     email: "",
     password: "",
     role: "TRAVELER",
-    area: "",
+    area_id: "",
     years_in_area: "",
     shop_name: "",
-    business_area: "",
+    business_area_id: "",
     years_in_business: "",
     description: "",
   });
 
+  const [areas, setAreas] = useState([]);
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadAreas() {
+      try {
+        const res = await fetch("http://127.0.0.1:8000/api/travel/areas/");
+        if (!res.ok) return;
+        const data = await res.json();
+        setAreas(data);
+      } catch (e) {
+        console.error("Failed to load areas", e);
+      }
+    }
+    loadAreas();
+  }, []);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -44,13 +59,17 @@ function SignupPage() {
 
     if (formData.role === "MERCHANT") {
       payload.shop_name = formData.shop_name;
-      payload.business_area = formData.business_area;
+      payload.business_area_id = formData.business_area_id
+        ? parseInt(formData.business_area_id, 10)
+        : null;
       payload.years_in_business = formData.years_in_business
         ? parseInt(formData.years_in_business, 10)
         : 0;
       payload.description = formData.description;
-    } else if (formData.role === "ADMIN") {
-      payload.area = formData.area;
+    } else if (formData.role === "TRAVELER" || formData.role === "ADMIN") {
+      payload.area_id = formData.area_id
+        ? parseInt(formData.area_id, 10)
+        : null;
       payload.years_in_area = formData.years_in_area
         ? parseInt(formData.years_in_area, 10)
         : 0;
@@ -74,10 +93,10 @@ function SignupPage() {
           email: "",
           password: "",
           role: "TRAVELER",
-          area: "",
+          area_id: "",
           years_in_area: "",
           shop_name: "",
-          business_area: "",
+          business_area_id: "",
           years_in_business: "",
           description: "",
         });
@@ -100,11 +119,8 @@ function SignupPage() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      const idToken = await user.getIdToken();
-
-      // For now, just show success
+      await user.getIdToken();
       setMessage(`Google signup success: ${user.email}`);
-      // Later we’ll send idToken to Django
     } catch (err) {
       console.error(err);
       setErrors({ detail: "Google login failed." });
@@ -179,11 +195,7 @@ function SignupPage() {
             </select>
           </div>
 
-          {isTraveler && (
-            <>
-              {/* No extra fields for traveler right now */}
-            </>
-          )}
+          {isTraveler && <></>}
 
           {isMerchant && (
             <>
@@ -195,15 +207,24 @@ function SignupPage() {
                   onChange={handleChange}
                 />
               </div>
+
               <div className="form-row">
                 <label>Business area</label>
-                <input
-                  name="business_area"
-                  value={formData.business_area}
+                <select
+                  name="business_area_id"
+                  value={formData.business_area_id}
                   onChange={handleChange}
-                  placeholder="e.g. Uttara"
-                />
+                  required
+                >
+                  <option value="">Select area…</option>
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+
               <div className="form-row">
                 <label>Years in business</label>
                 <input
@@ -214,6 +235,7 @@ function SignupPage() {
                   onChange={handleChange}
                 />
               </div>
+
               <div className="form-row">
                 <label>Short description</label>
                 <textarea
@@ -231,13 +253,21 @@ function SignupPage() {
             <>
               <div className="form-row">
                 <label>Admin area of responsibility</label>
-                <input
-                  name="area"
-                  value={formData.area}
+                <select
+                  name="area_id"
+                  value={formData.area_id}
                   onChange={handleChange}
-                  placeholder="e.g. Dhaka division"
-                />
+                  required
+                >
+                  <option value="">Select area…</option>
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+
               <div className="form-row">
                 <label>Years in this area</label>
                 <input
@@ -266,11 +296,9 @@ function SignupPage() {
           </button>
         </form>
 
-
-<p className="auth-footer">
-  Already have an account? <Link to="/login">Log in</Link>
-</p>
-
+        <p className="auth-footer">
+          Already have an account? <Link to="/login">Log in</Link>
+        </p>
       </div>
 
       <div className="auth-hero">

@@ -1,25 +1,32 @@
+// src/LoginPage.jsx
+// 1) React + Router + Firebase imports
 import React, { useState } from "react";
 import { auth, googleProvider } from "./firebase";
 import { signInWithPopup, sendPasswordResetEmail } from "firebase/auth";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-
-
-
+// 2) Component start
 function LoginPage() {
+  // For redirecting after login
+  const navigate = useNavigate();
+
+  // Form state
   const [formData, setFormData] = useState({
     username_or_email: "",
     password: "",
   });
+  // UI state
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Handle typing in inputs
   function handleChange(e) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
+  // 3) Normal username/password login (Django /login/)
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
@@ -31,11 +38,29 @@ function LoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
+        credentials: "include",
+        mode: "cors"  // include cookies for session auth
       });
 
       if (resp.ok) {
         const data = await resp.json();
         setMessage(data.message || "Login successful!");
+
+        // Save minimal info in browser
+        localStorage.setItem(
+          "ttg_user",
+          JSON.stringify({
+            username: data.username,
+            email: data.email,
+            role: data.role,
+            token: data.token,
+          })
+        );
+
+        // Role-based redirect
+        if (data.role === "TRAVELER") navigate("/traveler");
+        else if (data.role === "MERCHANT") navigate("/merchant");
+        else if (data.role === "ADMIN") navigate("/admin");
       } else {
         const errData = await resp.json();
         setErrors(errData);
@@ -47,14 +72,18 @@ function LoginPage() {
     }
   }
 
+  // 4) Google login using Firebase + Django /google-login/
   async function handleGoogleLogin() {
     setLoading(true);
     setMessage("");
     setErrors(null);
 
     try {
+      // Open Google popup in browser
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+
+      // Get Firebase ID token to send to Django
       const idToken = await user.getIdToken();
 
       const resp = await fetch(
@@ -69,6 +98,18 @@ function LoginPage() {
       if (resp.ok) {
         const data = await resp.json();
         setMessage(data.message || "Google login successful!");
+
+        localStorage.setItem(
+          "ttg_user",
+          JSON.stringify({
+            email: data.email,
+            role: data.role,
+          })
+        );
+
+        if (data.role === "TRAVELER") navigate("/traveler");
+        else if (data.role === "MERCHANT") navigate("/merchant");
+        else if (data.role === "ADMIN") navigate("/admin");
       } else {
         const errData = await resp.json();
         setErrors(errData);
@@ -81,6 +122,7 @@ function LoginPage() {
     }
   }
 
+  // 5) Forgot password via Firebase
   async function handleForgotPassword() {
     const email = formData.username_or_email.trim();
     setMessage("");
@@ -109,6 +151,7 @@ function LoginPage() {
     }
   }
 
+  // 6) JSX UI
   return (
     <div className="auth-page">
       <div className="auth-card">
@@ -168,6 +211,7 @@ function LoginPage() {
             </button>
           </div>
 
+          {/* Google login button */}
           <button
             type="button"
             className="primary-btn"
@@ -178,14 +222,15 @@ function LoginPage() {
             Continue with Google
           </button>
 
+          {/* Normal login button */}
           <button className="primary-btn" type="submit" disabled={loading}>
             {loading ? "Logging in..." : "Log in"}
           </button>
         </form>
 
-<p className="auth-footer">
-  Don’t have an account? <Link to="/signup">Sign up</Link>
-</p>
+        <p className="auth-footer">
+          Don’t have an account? <Link to="/signup">Sign up</Link>
+        </p>
       </div>
 
       <div className="auth-hero">

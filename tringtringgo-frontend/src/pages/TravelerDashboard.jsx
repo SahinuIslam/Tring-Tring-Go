@@ -1,0 +1,1227 @@
+import React, { useEffect, useState } from "react";
+
+// Top navigation bar
+function TopBar() {
+  async function handleLogout() {
+    try {
+      await fetch("http://127.0.0.1:8000/api/accounts/logout/", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (e) {
+      console.error("Logout API error (ignored):", e);
+    }
+
+    localStorage.removeItem("ttg_user");
+    window.location.href = "/login";
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: "1rem",
+        borderBottom: "1px solid #e5e7eb",
+        paddingBottom: "1rem",
+      }}
+    >
+      <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1f2937" }}>
+        TringTringGo
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "1.25rem",
+          fontSize: "0.95rem",
+        }}
+      >
+        <nav style={{ display: "flex", gap: "1.25rem" }}>
+          <a href="/" style={{ textDecoration: "none", color: "#4b5563" }}>
+            Home
+          </a>
+          <a
+            href="/explore"
+            style={{ textDecoration: "none", color: "#4b5563" }}
+          >
+            Explore
+          </a>
+          <a
+            href="/community"
+            style={{ textDecoration: "none", color: "#4b5563" }}
+          >
+            Community
+          </a>
+          <a
+            href="/services"
+            style={{ textDecoration: "none", color: "#4b5563" }}
+          >
+            Services
+          </a>
+        </nav>
+
+        <button
+          type="button"
+          onClick={handleLogout}
+          style={{
+            border: "none",
+            borderRadius: "999px",
+            padding: "0.4rem 0.9rem",
+            background: "#ef4444",
+            color: "white",
+            fontSize: "0.85rem",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Log out
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TravelerDashboard() {
+  // Dashboard data
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Profile edit
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ area_id: "", years_in_area: "" });
+  const [message, setMessage] = useState("");
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  // Areas for dropdown
+  const [areas, setAreas] = useState([]);
+
+  // Saved places
+  const [savedPlaces, setSavedPlaces] = useState([]);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [savedError, setSavedError] = useState(null);
+
+  // My Reviews
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewsError, setReviewsError] = useState(null);
+  const [newReview, setNewReview] = useState({
+    place: "",
+    rating: 5,
+    title: "",
+    text: "",
+  });
+  const [reviewSaving, setReviewSaving] = useState(false);
+
+  // Edit existing review
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [editingReviewData, setEditingReviewData] = useState({
+    rating: 5,
+    title: "",
+    text: "",
+  });
+
+  // All places for review dropdown
+  const [allPlaces, setAllPlaces] = useState([]);
+  const [allPlacesLoading, setAllPlacesLoading] = useState(true);
+  const [allPlacesError, setAllPlacesError] = useState(null);
+
+  // Format datetime nicely
+  function formatDateTime(isoString) {
+    if (!isoString) return "";
+    const d = new Date(isoString);
+    return d.toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  // Load dashboard + saved places + places + reviews
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const stored = localStorage.getItem("ttg_user");
+        const parsed = stored ? JSON.parse(stored) : null;
+        const token = parsed?.token || parsed?.username || "";
+
+        // Dashboard
+        const dashResp = await fetch(
+          "http://127.0.0.1:8000/api/accounts/dashboard/traveler/",
+          {
+            method: "GET",
+            headers: token ? { "X-User-Token": token } : {},
+          }
+        );
+
+        if (!dashResp.ok) {
+          const errData = await dashResp.json().catch(() => ({}));
+          throw new Error(errData.detail || "Failed to load dashboard");
+        }
+
+        const dashData = await dashResp.json();
+        setData(dashData);
+        setForm({
+          area_id: "",
+          years_in_area: dashData.profile.years_in_area || "",
+        });
+
+        // Saved places
+        setSavedLoading(true);
+        const savedResp = await fetch(
+          "http://127.0.0.1:8000/api/travel/saved-places/",
+          {
+            method: "GET",
+            headers: token ? { "X-User-Token": token } : {},
+          }
+        );
+        if (!savedResp.ok) {
+          const errData = await savedResp.json().catch(() => ({}));
+          setSavedError(errData.detail || "Failed to load saved places");
+        } else {
+          const savedData = await savedResp.json();
+          setSavedPlaces(savedData);
+          setSavedError(null);
+        }
+
+        // All places (for review dropdown)
+        setAllPlacesLoading(true);
+        const placesResp = await fetch(
+          "http://127.0.0.1:8000/api/travel/places/"
+        );
+        if (!placesResp.ok) {
+          const errData = await placesResp.json().catch(() => ({}));
+          setAllPlacesError(errData.detail || "Failed to load places");
+        } else {
+          const placesData = await placesResp.json();
+          setAllPlaces(placesData);
+          setAllPlacesError(null);
+        }
+
+        // My reviews
+        setReviewsLoading(true);
+        const reviewsResp = await fetch(
+          "http://127.0.0.1:8000/api/travel/my-reviews/",
+          {
+            method: "GET",
+            headers: token ? { "X-User-Token": token } : {},
+          }
+        );
+        if (!reviewsResp.ok) {
+          const errData = await reviewsResp.json().catch(() => ({}));
+          setReviewsError(errData.detail || "Failed to load reviews");
+        } else {
+          const reviewsData = await reviewsResp.json();
+          setReviews(reviewsData);
+          setReviewsError(null);
+        }
+
+        // Areas list
+        const areasResp = await fetch(
+          "http://127.0.0.1:8000/api/travel/areas/"
+        );
+        if (areasResp.ok) {
+          const areasData = await areasResp.json();
+          setAreas(areasData);
+        }
+      } catch (err) {
+        console.error("Dashboard Load Error:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+        setSavedLoading(false);
+        setReviewsLoading(false);
+        setAllPlacesLoading(false);
+      }
+    }
+
+    loadData();
+  }, []);
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  }
+
+  // Save profile edits
+  async function handleSaveProfile(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setMessage("");
+
+    try {
+      const stored = localStorage.getItem("ttg_user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      const token = parsed?.token || parsed?.username || "";
+
+      if (!token) {
+        throw new Error("You are not logged in. Please log in again.");
+      }
+
+      const resp = await fetch(
+        "http://127.0.0.1:8000/api/accounts/dashboard/traveler/profile/",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Token": token,
+          },
+          body: JSON.stringify({
+            area_id: form.area_id ? parseInt(form.area_id, 10) : null,
+            years_in_area: parseInt(form.years_in_area, 10) || 0,
+          }),
+        }
+      );
+
+      const body = await resp.json();
+
+      if (!resp.ok) {
+        throw new Error(body.detail || "Failed to update profile");
+      }
+
+      setData((prev) => ({
+        ...prev,
+        profile: {
+          area: body.area,
+          years_in_area: body.years_in_area,
+          profile_complete: body.profile_complete,
+        },
+      }));
+      setMessage("Profile updated successfully!");
+      setShowEditProfile(false);
+    } catch (err) {
+      console.error("Profile Save Error:", err);
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Remove saved place
+  async function handleRemoveSaved(id) {
+    try {
+      const stored = localStorage.getItem("ttg_user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      const token = parsed?.token || parsed?.username || "";
+
+      const resp = await fetch(
+        `http://127.0.0.1:8000/api/travel/saved-places/${id}/`,
+        {
+          method: "DELETE",
+          headers: token ? { "X-User-Token": token } : {},
+        }
+      );
+
+      if (!resp.ok && resp.status !== 204) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to remove.");
+      }
+
+      setSavedPlaces((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      console.error(err);
+      setSavedError(err.message);
+    }
+  }
+
+  function handleNewReviewChange(e) {
+    const { name, value } = e.target;
+    setNewReview((prev) => ({ ...prev, [name]: value }));
+  }
+
+  async function handleCreateReview(e) {
+    e.preventDefault();
+    setReviewSaving(true);
+    setReviewsError(null);
+
+    try {
+      const stored = localStorage.getItem("ttg_user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      const token = parsed?.token || parsed?.username || "";
+
+      if (!token) {
+        throw new Error("You are not logged in.");
+      }
+
+      const resp = await fetch("http://127.0.0.1:8000/api/travel/reviews/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Token": token,
+        },
+        body: JSON.stringify({
+          place: parseInt(newReview.place, 10),
+          rating: parseInt(newReview.rating, 10),
+          title: newReview.title,
+          text: newReview.text,
+        }),
+      });
+
+      const body = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        throw new Error(
+          body.detail || "Could not create review (check place and rating)"
+        );
+      }
+
+      // Add new review at top of list
+      setReviews((prev) => [body, ...prev]);
+      setNewReview({ place: "", rating: 5, title: "", text: "" });
+    } catch (err) {
+      console.error(err);
+      setReviewsError(err.message);
+    } finally {
+      setReviewSaving(false);
+    }
+  }
+
+  function startEditReview(r) {
+    setEditingReviewId(r.id);
+    setEditingReviewData({
+      rating: r.rating,
+      title: r.title || "",
+      text: r.text || "",
+    });
+  }
+
+  async function handleUpdateReview(e, id) {
+    e.preventDefault();
+    setReviewsError(null);
+
+    try {
+      const stored = localStorage.getItem("ttg_user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      const token = parsed?.token || parsed?.username || "";
+
+      if (!token) {
+        throw new Error("You are not logged in.");
+      }
+
+      const resp = await fetch(
+        `http://127.0.0.1:8000/api/travel/reviews/${id}/`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-Token": token,
+          },
+          body: JSON.stringify({
+            rating: parseInt(editingReviewData.rating, 10),
+            title: editingReviewData.title,
+            text: editingReviewData.text,
+          }),
+        }
+      );
+
+      const body = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        throw new Error(body.detail || "Could not update review");
+      }
+
+      setReviews((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, ...body } : r))
+      );
+      setEditingReviewId(null);
+    } catch (err) {
+      console.error(err);
+      setReviewsError(err.message);
+    }
+  }
+
+  async function handleDeleteReview(id) {
+    try {
+      const stored = localStorage.getItem("ttg_user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      const token = parsed?.token || parsed?.username || "";
+
+      const resp = await fetch(
+        `http://127.0.0.1:8000/api/travel/reviews/${id}/delete/`,
+        {
+          method: "DELETE",
+          headers: token ? { "X-User-Token": token } : {},
+        }
+      );
+
+      if (!resp.ok && resp.status !== 204) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to delete review");
+      }
+
+      setReviews((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      console.error(err);
+      setReviewsError(err.message);
+    }
+  }
+
+  // Loading / error states
+  if (loading) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-card">
+          <TopBar />
+          <h2>🧳 Traveler Dashboard</h2>
+          <p>Loading your data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-card">
+          <TopBar />
+          <h2>🧳 Traveler Dashboard</h2>
+          <p style={{ color: "#b91c1c", fontWeight: "bold" }}>Error: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-card">
+          <TopBar />
+          <h2>🧳 Traveler Dashboard</h2>
+          <p>No data available. Check authentication status.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const { user, profile } = data;
+
+  return (
+    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
+      <style>{`
+        .dashboard-card {
+          width: 100%;
+          max-width: 900px;
+          background: white;
+          padding: 2rem;
+          border-radius: 0.75rem;
+          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+        }
+        .user-welcome {
+          font-size: 1.125rem;
+          margin-bottom: 1.5rem;
+          border-bottom: 1px solid #e5e7eb;
+          padding-bottom: 0.75rem;
+        }
+        .stats-row {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        .stat-card {
+          padding: 1rem;
+          background-color: #f9fafb;
+          border-radius: 0.5rem;
+          border: 1px solid #e5e7eb;
+        }
+        .stat-card h3 {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #6b7280;
+          margin-bottom: 0.25rem;
+        }
+        .stat-card p {
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: #1f2937;
+        }
+        .auth-form .form-row {
+          margin-bottom: 1rem;
+        }
+        .auth-form label {
+          display: block;
+          margin-bottom: 0.25rem;
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: #374151;
+        }
+        .auth-form input {
+          width: 100%;
+          padding: 0.5rem 0.75rem;
+          border: 1px solid #d1d5db;
+          border-radius: 0.375rem;
+          box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .primary-btn {
+          padding: 0.6rem 1.25rem;
+          border: none;
+          border-radius: 0.5rem;
+          background-color: #3b82f6;
+          color: white;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        .primary-btn:hover:enabled {
+          background-color: #2563eb;
+        }
+        .primary-btn:disabled {
+          background-color: #93c5fd;
+          cursor: not-allowed;
+        }
+        .alert.success {
+          padding: 0.75rem 1rem;
+          background-color: #d1fae5;
+          color: #065f46;
+          border: 1px solid #6ee7b7;
+          border-radius: 0.375rem;
+          font-size: 0.9rem;
+        }
+        section ul {
+          list-style: none;
+          padding-left: 0;
+          margin-top: 0.5rem;
+        }
+        section ul li {
+          background-color: #f3f4f6;
+          padding: 0.5rem 0.75rem;
+          border-radius: 0.375rem;
+          margin-bottom: 0.5rem;
+          font-size: 0.9rem;
+          border-left: 4px solid #3b82f6;
+        }
+      `}</style>
+
+      <div className="dashboard-card">
+        <TopBar />
+
+        <h2 className="text-2xl font-bold text-gray-800">Traveler Dashboard</h2>
+        <div className="user-welcome">
+          Welcome back, <strong>{user.username}</strong>{" "}
+          <span style={{ fontSize: "0.9rem", opacity: 0.9 }}></span>
+        </div>
+
+        {/* Summary cards */}
+        <div className="stats-row">
+          <div className="stat-card">
+            <h3>Area</h3>
+            <p>{profile.area}</p>
+          </div>
+          <div className="stat-card">
+            <h3>Years in area</h3>
+            <p>{profile.years_in_area}</p>
+          </div>
+        </div>
+
+        {/* Profile details */}
+        <section style={{ marginTop: "1.5rem" }}>
+          <h3 className="text-xl font-semibold mb-2">Profile details</h3>
+          <p>
+            <strong>Name:</strong> {user.username}
+          </p>
+          <p>
+            <strong>Email:</strong> {user.email || "Not set"}
+          </p>
+          <p>
+            <strong>Area:</strong> {profile.area}
+          </p>
+          <p>
+            <strong>Years in area:</strong> {profile.years_in_area}
+          </p>
+        </section>
+
+        {/* Edit profile (collapsible) */}
+        <section style={{ marginTop: "1.5rem" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "0.5rem",
+            }}
+          >
+            <h3 className="text-xl font-semibold">Edit Profile</h3>
+            <button
+              type="button"
+              onClick={() => setShowEditProfile((prev) => !prev)}
+              className="primary-btn"
+              style={{ padding: "0.35rem 0.9rem", fontSize: "0.85rem" }}
+            >
+              {showEditProfile ? "Hide form" : "Edit profile"}
+            </button>
+          </div>
+
+          {message && (
+            <div className="alert success" style={{ marginBottom: "0.75rem" }}>
+              {message}
+            </div>
+          )}
+
+          {showEditProfile && (
+            <form
+              className="auth-form"
+              onSubmit={handleSaveProfile}
+              style={{ maxWidth: "400px" }}
+            >
+              <div className="form-row">
+                <label htmlFor="area_id">Area</label>
+                <select
+                  id="area_id"
+                  name="area_id"
+                  value={form.area_id}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select area…</option>
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <label htmlFor="years_in_area">Years in area</label>
+                <input
+                  id="years_in_area"
+                  name="years_in_area"
+                  type="number"
+                  min="0"
+                  value={form.years_in_area}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              <button
+                className="primary-btn"
+                type="submit"
+                disabled={saving}
+                style={{ alignSelf: "flex-start" }}
+              >
+                {saving ? "Saving..." : "Save changes"}
+              </button>
+            </form>
+          )}
+        </section>
+
+        {/* Saved Places */}
+        <section style={{ marginTop: "1.5rem" }}>
+          <h3 className="text-xl font-semibold mb-2">Saved places</h3>
+          {savedLoading && <p>Loading saved places...</p>}
+          {savedError && <p style={{ color: "#b91c1c" }}>{savedError}</p>}
+          {!savedLoading && savedPlaces.length === 0 && !savedError && (
+            <p style={{ color: "#6b7280" }}>
+              You have not saved any places yet.
+            </p>
+          )}
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "1rem",
+              marginTop: "0.75rem",
+            }}
+          >
+            {savedPlaces.map((item) => {
+              const p = item.place;
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    borderRadius: "0.75rem",
+                    overflow: "hidden",
+                    boxShadow: "0 6px 16px rgba(15,23,42,0.08)",
+                    background: "#ffffff",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  {p.image_url ? (
+                    <img
+                      src={p.image_url}
+                      alt={p.name}
+                      style={{
+                        width: "100%",
+                        height: "140px",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "140px",
+                        background: "#e5e7eb",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#6b7280",
+                        fontSize: "0.9rem",
+                      }}
+                    >
+                      No image
+                    </div>
+                  )}
+                  <div style={{ padding: "0.75rem 0.9rem", flexGrow: 1 }}>
+                    <h4 style={{ margin: 0, fontSize: "1rem" }}>{p.name}</h4>
+                    <p
+                      style={{
+                        margin: "0.25rem 0",
+                        fontSize: "0.85rem",
+                        color: "#6b7280",
+                      }}
+                    >
+                      {p.area_name || "Area not set"}
+                    </p>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: "0.85rem",
+                        color: "#4b5563",
+                      }}
+                    >
+                      {p.category} · ⭐ {p.average_rating.toFixed(1)}
+                    </p>
+                  </div>
+                  <div
+                    style={{
+                      padding: "0.65rem 0.9rem 0.8rem",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSaved(item.id)}
+                      style={{
+                        border: "none",
+                        background: "none",
+                        color: "#b91c1c",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      🗑 Remove
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        fontSize: "0.85rem",
+                        color: "#2563eb",
+                        textDecoration: "none",
+                        border: "none",
+                        background: "none",
+                        cursor: "pointer",
+                        padding: 0,
+                      }}
+                    >
+                      View details
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* My Reviews */}
+        <section style={{ marginTop: "1.5rem" }}>
+          <h3 className="text-xl font-semibold mb-2">My reviews</h3>
+          <p
+            style={{
+              color: "#6b7280",
+              fontSize: "0.9rem",
+              marginBottom: "0.5rem",
+            }}
+          >
+            Select any place, give a rating, and share your experience. Your
+            reviews help other travelers.
+          </p>
+
+          {reviewsLoading && <p>Loading reviews...</p>}
+          {reviewsError && <p style={{ color: "#b91c1c" }}>{reviewsError}</p>}
+
+          {/* Create review form */}
+          <form
+            onSubmit={handleCreateReview}
+            style={{
+              display: "grid",
+              gap: "0.75rem",
+              maxWidth: "500px",
+              marginBottom: "1rem",
+              marginTop: "0.5rem",
+            }}
+          >
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  marginBottom: "0.25rem",
+                }}
+              >
+                Place
+              </label>
+              {allPlacesLoading && (
+                <p style={{ fontSize: "0.85rem" }}>Loading places...</p>
+              )}
+              {allPlacesError && (
+                <p style={{ fontSize: "0.85rem", color: "#b91c1c" }}>
+                  {allPlacesError}
+                </p>
+              )}
+              {!allPlacesLoading && !allPlacesError && (
+                <select
+                  name="place"
+                  value={newReview.place}
+                  onChange={handleNewReviewChange}
+                  style={{
+                    width: "100%",
+                    padding: "0.5rem 0.75rem",
+                    borderRadius: "0.375rem",
+                    border: "1px solid #d1d5db",
+                  }}
+                  required
+                >
+                  <option value="">Select a place…</option>
+                  {allPlaces.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.area_name ? `(${p.area_name})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  marginBottom: "0.25rem",
+                }}
+              >
+                Rating (1–5)
+              </label>
+              <input
+                name="rating"
+                type="number"
+                min="1"
+                max="5"
+                value={newReview.rating}
+                onChange={handleNewReviewChange}
+                style={{
+                  width: "100%",
+                  padding: "0.5rem 0.75rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #d1d5db",
+                }}
+                required
+              />
+            </div>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  marginBottom: "0.25rem",
+                }}
+              >
+                Title (optional)
+              </label>
+              <input
+                name="title"
+                value={newReview.title}
+                onChange={handleNewReviewChange}
+                placeholder="Great place for street food"
+                style={{
+                  width: "100%",
+                  padding: "0.5rem 0.75rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #d1d5db",
+                }}
+              />
+            </div>
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  marginBottom: "0.25rem",
+                }}
+              >
+                Review text (optional)
+              </label>
+              <textarea
+                name="text"
+                value={newReview.text}
+                onChange={handleNewReviewChange}
+                rows={3}
+                placeholder="Share your experience..."
+                style={{
+                  width: "100%",
+                  padding: "0.5rem 0.75rem",
+                  borderRadius: "0.375rem",
+                  border: "1px solid #d1d5db",
+                }}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={reviewSaving}
+              style={{
+                alignSelf: "flex-start",
+                padding: "0.5rem 1.1rem",
+                borderRadius: "999px",
+                border: "none",
+                background: "#3b82f6",
+                color: "white",
+                fontWeight: 600,
+                cursor: reviewSaving ? "not-allowed" : "pointer",
+              }}
+            >
+              {reviewSaving ? "Saving..." : "Post review"}
+            </button>
+          </form>
+
+          {/* Reviews list */}
+          {!reviewsLoading && reviews.length === 0 && !reviewsError && (
+            <p style={{ color: "#6b7280" }}>
+              You have not written any reviews yet.
+            </p>
+          )}
+
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+          >
+            {reviews.map((r) => (
+              <div
+                key={r.id}
+                style={{
+                  padding: "0.75rem 0.9rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid #e5e7eb",
+                  backgroundColor: "#f9fafb",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <strong>{r.place_name}</strong>{" "}
+                    <span style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+                      {r.place_area}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "0.9rem" }}>⭐ {r.rating}</div>
+                </div>
+                {r.title && (
+                  <p style={{ margin: "0.25rem 0", fontWeight: 500 }}>
+                    {r.title}
+                  </p>
+                )}
+                {r.text && (
+                  <p
+                    style={{
+                      margin: "0.25rem 0",
+                      fontSize: "0.9rem",
+                      color: "#4b5563",
+                    }}
+                  >
+                    {r.text}
+                  </p>
+                )}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    fontSize: "0.8rem",
+                    marginTop: "0.25rem",
+                  }}
+                >
+                  <span style={{ color: "#9ca3af" }}>
+                    {formatDateTime(r.created_at)}
+                  </span>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => startEditReview(r)}
+                      style={{
+                        border: "none",
+                        background: "none",
+                        color: "#2563eb",
+                        cursor: "pointer",
+                        marginRight: "0.5rem",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReview(r.id)}
+                      style={{
+                        border: "none",
+                        background: "none",
+                        color: "#b91c1c",
+                        cursor: "pointer",
+                        fontSize: "0.85rem",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                {/* Inline edit form */}
+                {editingReviewId === r.id && (
+                  <form
+                    onSubmit={(e) => handleUpdateReview(e, r.id)}
+                    style={{
+                      marginTop: "0.5rem",
+                      display: "grid",
+                      gap: "0.5rem",
+                    }}
+                  >
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "0.8rem",
+                          fontWeight: 500,
+                          marginBottom: "0.15rem",
+                        }}
+                      >
+                        Rating (1–5)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="5"
+                        value={editingReviewData.rating}
+                        onChange={(e) =>
+                          setEditingReviewData((prev) => ({
+                            ...prev,
+                            rating: e.target.value,
+                          }))
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "0.4rem 0.6rem",
+                          borderRadius: "0.375rem",
+                          border: "1px solid #d1d5db",
+                        }}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "0.8rem",
+                          fontWeight: 500,
+                          marginBottom: "0.15rem",
+                        }}
+                      >
+                        Title
+                      </label>
+                      <input
+                        value={editingReviewData.title}
+                        onChange={(e) =>
+                          setEditingReviewData((prev) => ({
+                            ...prev,
+                            title: e.target.value,
+                          }))
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "0.4rem 0.6rem",
+                          borderRadius: "0.375rem",
+                          border: "1px solid #d1d5db",
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: "0.8rem",
+                          fontWeight: 500,
+                          marginBottom: "0.15rem",
+                        }}
+                      >
+                        Review text
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={editingReviewData.text}
+                        onChange={(e) =>
+                          setEditingReviewData((prev) => ({
+                            ...prev,
+                            text: e.target.value,
+                          }))
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "0.4rem 0.6rem",
+                          borderRadius: "0.375rem",
+                          border: "1px solid #d1d5db",
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        type="submit"
+                        className="primary-btn"
+                        style={{
+                          padding: "0.4rem 0.9rem",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingReviewId(null)}
+                        style={{
+                          border: "none",
+                          background: "none",
+                          color: "#6b7280",
+                          cursor: "pointer",
+                          fontSize: "0.85rem",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+export default TravelerDashboard;
