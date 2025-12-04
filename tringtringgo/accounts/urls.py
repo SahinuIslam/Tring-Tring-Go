@@ -8,6 +8,7 @@ from .views import (
     admin_dashboard,
     me_view,
     traveler_update_profile,
+    merchant_update_profile,
     logout_view,
 )
 
@@ -21,6 +22,11 @@ urlpatterns = [
         "dashboard/traveler/profile/",
         traveler_update_profile,
         name="traveler-update-profile",
+    ),
+    path(
+        "dashboard/merchant/profile/",
+        merchant_update_profile,
+        name="merchant-update-profile",
     ),
     path("dashboard/merchant/", merchant_dashboard, name="merchant-dashboard"),
     path("dashboard/admin/", admin_dashboard, name="admin-dashboard"),

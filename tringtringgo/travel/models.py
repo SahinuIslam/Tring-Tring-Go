@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+# Area Model
 class Area(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -8,7 +9,7 @@ class Area(models.Model):
     def __str__(self):
         return self.name
 
-
+# Place Model
 class Place(models.Model):
     CATEGORY_CHOICES = [
         ("PARK", "Park"),
@@ -36,8 +37,7 @@ class Place(models.Model):
     def __str__(self):
         return f"{self.name} ({self.area.name if self.area else 'No area'})"
 
-
-
+# Saved Place Model
 class SavedPlace(models.Model):
     traveler = models.ForeignKey(
         "accounts.UserAccount",     
@@ -54,9 +54,7 @@ class SavedPlace(models.Model):
     def __str__(self):
         return f"{self.traveler.user.username} saved {self.place.name}"
 
-
-
-
+# Review Model
 class Review(models.Model):
     RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
 

@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+# User Account Model
 class UserAccount(models.Model):
     ROLE_CHOICES = [
         ("TRAVELER", "Traveler"),
@@ -15,7 +16,7 @@ class UserAccount(models.Model):
         return f"{self.user.username} ({self.role})"
 
 
-
+# Traveler Profile Model
 class TravelerProfile(models.Model):
     user_account = models.OneToOneField(
         UserAccount,
@@ -33,9 +34,7 @@ class TravelerProfile(models.Model):
     def __str__(self):
         return f"TravelerProfile for {self.user_account.user.username}"
 
-
-
-
+# Merchant Profile Model
 class MerchantProfile(models.Model):
     user_account = models.OneToOneField(
         UserAccount,
@@ -71,6 +70,7 @@ class MerchantProfile(models.Model):
         return f"{self.shop_name} ({status}) - {self.user_account.user.username}"
 
 
+# Admin Profile Model
 class AdminProfile(models.Model):
     user_account = models.OneToOneField(
         UserAccount,
@@ -89,7 +89,7 @@ class AdminProfile(models.Model):
     def __str__(self):
         return f"AdminProfile({self.user_account.user.username})"
 
-
+# Login Log Model
 class LoginLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_logs")
     login_time = models.DateTimeField(auto_now_add=True)

@@ -16,6 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import AllowAny
 from django.contrib.auth import logout
 from travel.models import Area
+from django.utils.dateparse import parse_time
 
 
 
@@ -104,6 +105,8 @@ class LoginAPIView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
+
 #Traveler dashboard view
 @csrf_exempt
 @api_view(["GET"])
@@ -163,30 +166,159 @@ def traveler_dashboard(request):
 
 
 
-#Merchant dashboard view
+# Merchant dashboard view
 @csrf_exempt
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def merchant_dashboard(request):
-    account = request.user.account
+    token = request.headers.get("X-User-Token")
+    if not token:
+        return Response(
+            {"detail": "Not logged in."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    try:
+        user = User.objects.get(username=token)
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "Invalid user token."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    account, _ = UserAccount.objects.get_or_create(
+        user=user,
+        defaults={"role": "MERCHANT"},
+    )
+
     if account.role != "MERCHANT":
-        return Response({"detail": "Merchant access only"}, status=status.HTTP_403_FORBIDDEN)
-    
+        return Response(
+            {"detail": "Merchant access only"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     profile = account.merchant_profile
+
     stats = {
         "shop_name": profile.shop_name,
         "business_area": profile.business_area.name if profile.business_area else "Not set",
-        "is_verified": profile.is_verified,
+        "business_area_id": profile.business_area.id if profile.business_area else None,
+        "opening_time": profile.opening_time.strftime("%H:%M") if profile.opening_time else None,
+        "closing_time": profile.closing_time.strftime("%H:%M") if profile.closing_time else None,
         "years_in_business": profile.years_in_business,
+        "description": profile.description,
+        "is_verified": profile.is_verified,
         "status": "Verified" if profile.is_verified else "Pending verification",
     }
-    
+
     data = {
         "role": account.role,
         "profile": stats,
         "message": f"{stats['shop_name']} - {stats['status']}",
     }
     return Response(data)
+
+
+# Merchant profile update view
+@csrf_exempt
+@api_view(["PUT"])
+@permission_classes([AllowAny])
+def merchant_update_profile(request):
+    token = request.headers.get("X-User-Token")
+    if not token:
+        return Response({"detail": "Not logged in."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        user = User.objects.get(username=token)
+    except User.DoesNotExist:
+        return Response({"detail": "Invalid user token."}, status=status.HTTP_401_UNAUTHORIZED)
+
+    account, _ = UserAccount.objects.get_or_create(
+        user=user, defaults={"role": "MERCHANT"}
+    )
+    if account.role != "MERCHANT":
+        return Response({"detail": "Merchant access only"}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        profile = account.merchant_profile
+    except MerchantProfile.DoesNotExist:
+        return Response({"detail": "Merchant profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    data = request.data
+
+    # 1) shop_name
+    shop_name = data.get("shop_name", profile.shop_name)
+
+    # 2) business_area_id -> Area FK
+    business_area_id = data.get("business_area_id")
+    if business_area_id is not None:
+        try:
+            business_area = Area.objects.get(id=int(business_area_id))
+        except (ValueError, Area.DoesNotExist):
+            return Response({"detail": "Invalid business_area_id."}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        business_area = profile.business_area
+
+    # 3) opening_time / closing_time (strings "HH:MM" or null)
+    opening_time_str = data.get("opening_time")
+    closing_time_str = data.get("closing_time")
+
+    if opening_time_str:
+        opening_time = parse_time(opening_time_str)
+        if opening_time is None:
+            return Response({"detail": "Invalid opening_time format. Use HH:MM."},
+                            status=status.HTTP_400_BAD_REQUEST)
+    else:
+        opening_time = None
+
+    if closing_time_str:
+        closing_time = parse_time(closing_time_str)
+        if closing_time is None:
+            return Response({"detail": "Invalid closing_time format. Use HH:MM."},
+                            status=status.HTTP_400_BAD_REQUEST)
+    else:
+        closing_time = None
+
+    # 4) years_in_business
+    years_in_business = data.get("years_in_business", profile.years_in_business)
+    try:
+        years_in_business = int(years_in_business)
+        if years_in_business < 0:
+            raise ValueError
+    except (ValueError, TypeError):
+        return Response(
+            {"detail": "years_in_business must be a non-negative integer."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # 5) description
+    description = data.get("description", profile.description)
+
+    # Apply updates
+    profile.shop_name = shop_name
+    profile.business_area = business_area
+    profile.opening_time = opening_time
+    profile.closing_time = closing_time
+    profile.years_in_business = years_in_business
+    profile.description = description
+    profile.save()
+
+    return Response(
+        {
+            "shop_name": profile.shop_name,
+            "business_area": profile.business_area.name if profile.business_area else "Not set",
+            "business_area_id": profile.business_area.id if profile.business_area else None,
+            "opening_time": profile.opening_time.strftime("%H:%M") if profile.opening_time else None,
+            "closing_time": profile.closing_time.strftime("%H:%M") if profile.closing_time else None,
+            "years_in_business": profile.years_in_business,
+            "description": profile.description,
+            "is_verified": profile.is_verified,
+            "status": "Verified" if profile.is_verified else "Pending verification",
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
 
 #Admin dashboard view
 @csrf_exempt
@@ -215,6 +347,7 @@ def admin_dashboard(request):
     }
     return Response(data)
 
+# Current user info view
 @csrf_exempt
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -231,6 +364,7 @@ def me_view(request):
     }
     return Response(data)
 
+# Traveler profile update view
 @csrf_exempt
 @api_view(["PUT"])
 @permission_classes([AllowAny])
@@ -287,7 +421,7 @@ def traveler_update_profile(request):
     )
 
 
-
+# Logout view
 @csrf_exempt
 @api_view(["POST"])
 @permission_classes([AllowAny])
