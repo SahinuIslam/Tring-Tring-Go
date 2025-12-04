@@ -323,18 +323,42 @@ def merchant_update_profile(request):
 #Admin dashboard view
 @csrf_exempt
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def admin_dashboard(request):
-    account = request.user.account
+    token = request.headers.get("X-User-Token")
+    if not token:
+        return Response(
+            {"detail": "Not logged in."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    try:
+        user = User.objects.get(username=token)
+    except User.DoesNotExist:
+        return Response(
+            {"detail": "Invalid user token."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    try:
+        account = UserAccount.objects.get(user=user)
+    except UserAccount.DoesNotExist:
+        return Response(
+            {"detail": "UserAccount not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
     if account.role != "ADMIN":
-        return Response({"detail": "Admin access only"}, status=status.HTTP_403_FORBIDDEN)
-    
-    # Real admin stats from your models
+        return Response(
+            {"detail": "Admin access only"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     total_users = UserAccount.objects.count()
     travelers = UserAccount.objects.filter(role="TRAVELER").count()
     merchants = UserAccount.objects.filter(role="MERCHANT").count()
     unverified_merchants = MerchantProfile.objects.filter(is_verified=False).count()
-    
+
     data = {
         "role": account.role,
         "stats": {
