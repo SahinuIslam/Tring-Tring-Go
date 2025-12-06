@@ -1,3 +1,4 @@
+// src/MerchantDashboard.jsx
 import React, { useEffect, useState } from "react";
 
 function TopBar() {
@@ -82,6 +83,14 @@ function TopBar() {
   );
 }
 
+function formatTimeToAMPM(timeStr) {
+  if (!timeStr) return "Not set";
+  const [h, m] = timeStr.split(":").map(Number);
+  const hour12 = ((h + 11) % 12) + 1;
+  const ampm = h >= 12 ? "PM" : "AM";
+  return `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
+}
+
 function MerchantDashboard() {
   const [data, setData] = useState(null);
   const [areas, setAreas] = useState([]);
@@ -93,6 +102,9 @@ function MerchantDashboard() {
   const [editForm, setEditForm] = useState({
     shop_name: "",
     business_area_id: "",
+    business_type: "",
+    address: "",
+    phone: "",
     opening_time: "",
     closing_time: "",
     years_in_business: "",
@@ -100,6 +112,7 @@ function MerchantDashboard() {
   });
   const [saving, setSaving] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -116,7 +129,6 @@ function MerchantDashboard() {
           throw new Error("Not logged in.");
         }
 
-        // Merchant dashboard
         const resp = await fetch(
           "http://127.0.0.1:8000/api/accounts/dashboard/merchant/",
           {
@@ -140,6 +152,9 @@ function MerchantDashboard() {
             body.profile.business_area_id != null
               ? String(body.profile.business_area_id)
               : "",
+          business_type: body.profile.business_type || "",
+          address: body.profile.address || "",
+          phone: body.profile.phone || "",
           opening_time: body.profile.opening_time || "",
           closing_time: body.profile.closing_time || "",
           years_in_business:
@@ -149,7 +164,6 @@ function MerchantDashboard() {
           description: body.profile.description || "",
         });
 
-        // Load areas for dropdown
         setAreasLoading(true);
         const areasResp = await fetch(
           "http://127.0.0.1:8000/api/travel/areas/"
@@ -203,9 +217,13 @@ function MerchantDashboard() {
             business_area_id: editForm.business_area_id
               ? parseInt(editForm.business_area_id, 10)
               : null,
+            business_type: editForm.business_type,
+            address: editForm.address,
+            phone: editForm.phone,
             opening_time: editForm.opening_time || null,
             closing_time: editForm.closing_time || null,
-            years_in_business: parseInt(editForm.years_in_business, 10) || 0,
+            years_in_business:
+              parseInt(editForm.years_in_business, 10) || 0,
             description: editForm.description,
           }),
         }
@@ -217,7 +235,6 @@ function MerchantDashboard() {
         throw new Error(body.detail || "Failed to update merchant profile");
       }
 
-      // Update local data
       setData((prev) => ({
         ...prev,
         profile: {
@@ -225,6 +242,9 @@ function MerchantDashboard() {
           shop_name: body.shop_name,
           business_area: body.business_area,
           business_area_id: body.business_area_id,
+          business_type: body.business_type,
+          address: body.address,
+          phone: body.phone,
           opening_time: body.opening_time,
           closing_time: body.closing_time,
           years_in_business: body.years_in_business,
@@ -240,6 +260,52 @@ function MerchantDashboard() {
       setError(err.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleRequestVerification() {
+    try {
+      setRequesting(true);
+      setError("");
+      setMessage("");
+
+      const stored = localStorage.getItem("ttg_user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      const token = parsed?.token || parsed?.username || "";
+
+      if (!token) {
+        throw new Error("Not logged in.");
+      }
+
+      const resp = await fetch(
+        "http://127.0.0.1:8000/api/accounts/dashboard/merchant/request-verification/",
+        {
+          method: "POST",
+          headers: {
+            "X-User-Token": token,
+          },
+        }
+      );
+
+      const body = await resp.json().catch(() => ({}));
+
+      if (!resp.ok) {
+        if (
+          body.detail === "Verification request already pending." ||
+          body.detail === "This business is already verified."
+        ) {
+          setMessage(body.detail);
+          return;
+        }
+        throw new Error(body.detail || "Failed to request verification");
+      }
+
+      setMessage(body.message || "Verification request sent.");
+    } catch (err) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setRequesting(false);
     }
   }
 
@@ -268,6 +334,7 @@ function MerchantDashboard() {
   }
 
   const { profile, role, message: apiMessage } = data;
+  const isVerified = profile.is_verified;
 
   return (
     <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
@@ -276,41 +343,42 @@ function MerchantDashboard() {
           width: 100%;
           max-width: 900px;
           background: white;
-          padding: 2rem;
+          padding: 1.5rem;
           border-radius: 0.75rem;
           box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
         }
         .stats-row {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
           gap: 1rem;
           margin-bottom: 1.5rem;
         }
         .stat-card {
-          padding: 1rem;
+          padding: 0.75rem;
           background-color: #f9fafb;
           border-radius: 0.5rem;
           border: 1px solid #e5e7eb;
         }
         .stat-card h3 {
-          font-size: 0.875rem;
+          font-size: 0.8rem;
           font-weight: 600;
           color: #6b7280;
-          margin-bottom: 0.25rem;
+          margin-bottom: 0.15rem;
         }
         .stat-card p {
-          font-size: 1.25rem;
+          font-size: 1.1rem;
           font-weight: 700;
           color: #1f2937;
         }
         .primary-btn {
-          padding: 0.5rem 1rem;
+          padding: 0.45rem 0.9rem;
           border: none;
           border-radius: 0.5rem;
           background-color: #3b82f6;
           color: white;
           font-weight: 600;
           cursor: pointer;
+          font-size: 0.85rem;
         }
         .primary-btn:disabled {
           background-color: #93c5fd;
@@ -318,14 +386,15 @@ function MerchantDashboard() {
         }
         .form-label {
           display: block;
-          font-size: 0.85rem;
+          font-size: 0.8rem;
           margin-bottom: 4px;
         }
         .form-input, .form-select, .form-textarea {
           width: 100%;
-          padding: 0.5rem 0.75rem;
+          padding: 0.45rem 0.7rem;
           border-radius: 0.375rem;
           border: 1px solid #d1d5db;
+          font-size: 0.85rem;
         }
       `}</style>
 
@@ -333,7 +402,9 @@ function MerchantDashboard() {
         <TopBar />
 
         <h2 className="text-2xl font-bold text-gray-800">Merchant Dashboard</h2>
-        <p style={{ marginBottom: "1rem", color: "#4b5563" }}>{apiMessage}</p>
+        <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>
+          {apiMessage}
+        </p>
 
         {message && (
           <div
@@ -343,7 +414,7 @@ function MerchantDashboard() {
               background: "#d1fae5",
               color: "#065f46",
               borderRadius: "0.375rem",
-              fontSize: "0.9rem",
+              fontSize: "0.85rem",
             }}
           >
             {message}
@@ -357,7 +428,7 @@ function MerchantDashboard() {
               background: "#fee2e2",
               color: "#b91c1c",
               borderRadius: "0.375rem",
-              fontSize: "0.9rem",
+              fontSize: "0.85rem",
             }}
           >
             {error}
@@ -385,16 +456,19 @@ function MerchantDashboard() {
         </div>
 
         {/* Profile details */}
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">Profile details</h3>
+        <section style={{ marginTop: "0.5rem" }}>
+          <h3 className="text-xl font-semibold mb-2">Business details</h3>
           <p>
             <strong>Role:</strong> {role}
           </p>
           <p>
-            <strong>Shop name:</strong> {profile.shop_name}
+            <strong>Business type:</strong> {profile.business_type || "Not set"}
           </p>
           <p>
-            <strong>Business area:</strong> {profile.business_area}
+            <strong>Address:</strong> {profile.address || "Not set"}
+          </p>
+          <p>
+            <strong>Phone:</strong> {profile.phone || "Not set"}
           </p>
           <p>
             <strong>Opening time:</strong>{" "}
@@ -403,9 +477,6 @@ function MerchantDashboard() {
           <p>
             <strong>Closing time:</strong>{" "}
             {formatTimeToAMPM(profile.closing_time)}
-          </p>
-          <p>
-            <strong>Years in business:</strong> {profile.years_in_business}
           </p>
           <p>
             <strong>Verified:</strong> {profile.is_verified ? "Yes" : "No"}
@@ -417,8 +488,20 @@ function MerchantDashboard() {
           )}
         </section>
 
+        {/* Request verification button */}
+        <div style={{ marginTop: "0.75rem", marginBottom: "0.75rem" }}>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleRequestVerification}
+            disabled={requesting}
+          >
+            {requesting ? "Requesting..." : "Request verification"}
+          </button>
+        </div>
+
         {/* Edit business profile */}
-        <section style={{ marginTop: "1.5rem" }}>
+        <section style={{ marginTop: "0.75rem" }}>
           <div
             style={{
               display: "flex",
@@ -431,7 +514,7 @@ function MerchantDashboard() {
             <button
               type="button"
               className="primary-btn"
-              style={{ padding: "0.35rem 0.9rem", fontSize: "0.85rem" }}
+              style={{ padding: "0.35rem 0.9rem", fontSize: "0.8rem" }}
               onClick={() => setShowEdit((prev) => !prev)}
             >
               {showEdit ? "Hide form" : "Edit profile"}
@@ -441,90 +524,173 @@ function MerchantDashboard() {
           {showEdit && (
             <form
               onSubmit={handleSaveProfile}
-              style={{ maxWidth: "450px", display: "grid", gap: "0.75rem" }}
+              style={{ maxWidth: "480px", display: "grid", gap: "0.6rem" }}
             >
-              <div>
-                <label className="form-label">Shop name</label>
-                <input
-                  className="form-input"
-                  name="shop_name"
-                  value={editForm.shop_name}
-                  onChange={handleEditChange}
-                />
+              {/* Business info block */}
+              <div
+                style={{
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid #e5e7eb",
+                  background: "#f9fafb",
+                }}
+              >
+                <h4
+                  style={{
+                    marginBottom: "0.35rem",
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Business Information
+                </h4>
+
+                <div style={{ display: "grid", gap: "0.5rem" }}>
+                  <div>
+                    <label className="form-label">Business name</label>
+                    <input
+                      className="form-input"
+                      name="shop_name"
+                      value={editForm.shop_name}
+                      onChange={handleEditChange}
+                      disabled={isVerified}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">Business type</label>
+                    <input
+                      className="form-input"
+                      name="business_type"
+                      value={editForm.business_type}
+                      onChange={handleEditChange}
+                      disabled={isVerified}
+                      placeholder="Restaurant, Cafe, Shop..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">Business area</label>
+                    {areasLoading ? (
+                      <p style={{ fontSize: "0.8rem" }}>Loading areas...</p>
+                    ) : (
+                      <select
+                        className="form-select"
+                        name="business_area_id"
+                        value={editForm.business_area_id}
+                        onChange={handleEditChange}
+                        disabled={isVerified}
+                      >
+                        <option value="">Select area…</option>
+                        {areas.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="form-label">Address</label>
+                    <input
+                      className="form-input"
+                      name="address"
+                      value={editForm.address}
+                      onChange={handleEditChange}
+                      disabled={isVerified}
+                      placeholder="Street, area, city"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">Phone</label>
+                    <input
+                      className="form-input"
+                      name="phone"
+                      value={editForm.phone}
+                      onChange={handleEditChange}
+                      disabled={isVerified}
+                      placeholder="+880..."
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="form-label">Business area</label>
-                {areasLoading ? (
-                  <p style={{ fontSize: "0.85rem" }}>Loading areas...</p>
-                ) : (
-                  <select
-                    className="form-select"
-                    name="business_area_id"
-                    value={editForm.business_area_id}
-                    onChange={handleEditChange}
-                  >
-                    <option value="">Select area…</option>
-                    {areas.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              {/* Timing + description */}
+              <div
+                style={{
+                  padding: "0.75rem",
+                  borderRadius: "0.5rem",
+                  border: "1px solid #e5e7eb",
+                  background: "#f9fafb",
+                }}
+              >
+                <h4
+                  style={{
+                    marginBottom: "0.35rem",
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  Hours & Description
+                </h4>
 
-              <div>
-                <label className="form-label">Opening time</label>
-                <input
-                  className="form-input"
-                  type="time"
-                  name="opening_time"
-                  value={editForm.opening_time}
-                  onChange={handleEditChange}
-                />
-              </div>
+                <div style={{ display: "grid", gap: "0.5rem" }}>
+                  <div>
+                    <label className="form-label">Opening time</label>
+                    <input
+                      className="form-input"
+                      type="time"
+                      name="opening_time"
+                      value={editForm.opening_time}
+                      onChange={handleEditChange}
+                    />
+                  </div>
 
-              <div>
-                <label className="form-label">Closing time</label>
-                <input
-                  className="form-input"
-                  type="time"
-                  name="closing_time"
-                  value={editForm.closing_time}
-                  onChange={handleEditChange}
-                />
-              </div>
+                  <div>
+                    <label className="form-label">Closing time</label>
+                    <input
+                      className="form-input"
+                      type="time"
+                      name="closing_time"
+                      value={editForm.closing_time}
+                      onChange={handleEditChange}
+                    />
+                  </div>
 
-              <div>
-                <label className="form-label">Years in business</label>
-                <input
-                  className="form-input"
-                  name="years_in_business"
-                  type="number"
-                  min="0"
-                  value={editForm.years_in_business}
-                  onChange={handleEditChange}
-                />
-              </div>
+                  <div>
+                    <label className="form-label">Years in business</label>
+                    <input
+                      className="form-input"
+                      name="years_in_business"
+                      type="number"
+                      min="0"
+                      value={editForm.years_in_business}
+                      onChange={handleEditChange}
+                    />
+                  </div>
 
-              <div>
-                <label className="form-label">Description</label>
-                <textarea
-                  className="form-textarea"
-                  name="description"
-                  rows={3}
-                  value={editForm.description}
-                  onChange={handleEditChange}
-                  placeholder="Tell travelers what makes your place special"
-                />
+                  <div>
+                    <label className="form-label">Description</label>
+                    <textarea
+                      className="form-textarea"
+                      name="description"
+                      rows={3}
+                      value={editForm.description}
+                      onChange={handleEditChange}
+                      disabled={isVerified}
+                      placeholder="Tell travelers what makes your place special"
+                    />
+                  </div>
+                </div>
               </div>
 
               <button
                 type="submit"
                 className="primary-btn"
                 disabled={saving}
-                style={{ alignSelf: "flex-start" }}
+                style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}
               >
                 {saving ? "Saving..." : "Save changes"}
               </button>
@@ -536,11 +702,4 @@ function MerchantDashboard() {
   );
 }
 
-function formatTimeToAMPM(timeStr) {
-  if (!timeStr) return "Not set";
-  const [h, m] = timeStr.split(":").map(Number);
-  const hour12 = ((h + 11) % 12) + 1;
-  const ampm = h >= 12 ? "PM" : "AM";
-  return `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
-}
 export default MerchantDashboard;

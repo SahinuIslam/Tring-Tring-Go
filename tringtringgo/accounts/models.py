@@ -50,6 +50,9 @@ class MerchantProfile(models.Model):
     blank=True,
     related_name="merchant_profiles",
 )
+    business_type = models.CharField(max_length=100, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
     opening_time = models.TimeField(null=True, blank=True)
     closing_time = models.TimeField(null=True, blank=True)
     years_in_business = models.PositiveIntegerField(default=0)
@@ -69,7 +72,6 @@ class MerchantProfile(models.Model):
         status = "Verified" if self.is_verified else "Unverified"
         return f"{self.shop_name} ({status}) - {self.user_account.user.username}"
 
-
 # Admin Profile Model
 class AdminProfile(models.Model):
     user_account = models.OneToOneField(
@@ -77,12 +79,12 @@ class AdminProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="admin_profile",
     )
-    area = models.ForeignKey(
+    area = models.OneToOneField( # one admin per Area.
          "travel.Area",  
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="admin_profiles",
+        related_name="admin_profile", 
     )
     years_in_area = models.PositiveIntegerField(default=0)
 
@@ -97,3 +99,32 @@ class LoginLog(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.method} - {self.login_time}"
+
+# Merchant Verification Request Model
+class MerchantVerificationRequest(models.Model):
+    STATUS_CHOICES = [
+        ("PENDING", "Pending"),
+        ("APPROVED", "Approved"),
+        ("REJECTED", "Rejected"),
+    ]
+
+    merchant = models.OneToOneField(
+        MerchantProfile,
+        on_delete=models.CASCADE,
+        related_name="verification_request",
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        UserAccount,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="merchant_verifications",
+        limit_choices_to={"role": "ADMIN"},
+    )
+    admin_note = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.merchant.shop_name} - {self.status}"

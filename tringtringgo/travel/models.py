@@ -12,15 +12,30 @@ class Area(models.Model):
 # Place Model
 class Place(models.Model):
     CATEGORY_CHOICES = [
-        ("PARK", "Park"),
-        ("MUSEUM", "Museum"),
-        ("RESTAURANT", "Restaurant"),
-        ("CAFE", "Cafe"),
-        ("MALL", "Mall"),
-        ("LAKE", "Lake"),
-        ("STREET_FOOD", "Street Food"),
-        ("OTHER", "Other"),
-    ]
+    ("PARK", "Park"),
+    ("MUSEUM", "Museum"),
+    ("RESTAURANT", "Restaurant"),
+    ("CAFE", "Cafe"),
+    ("STREET_FOOD", "Street Food"),
+    ("FAST_FOOD", "Fast Food"),
+    ("BAKERY", "Bakery"),
+    ("MALL", "Mall"),
+    ("SHOP", "Shop"),
+    ("LOCAL_MARKET", "Local Market"),
+    ("SUPERMARKET", "Supermarket"),
+    ("HISTORICAL_SITE", "Historical Site"),
+    ("LANDMARK", "Landmark"),
+    ("LAKE", "Lake"),
+    ("BEACH", "Beach"),
+    ("ZOO", "Zoo"),
+    ("CINEMA", "Cinema"),
+    ("AMUSEMENT_PARK", "Amusement Park"),
+    ("SPORTS_COMPLEX", "Sports Complex"),
+    ("HOTEL", "Hotel"),
+    ("GUEST_HOUSE", "Guest House"),
+    ("TRANSPORT", "Transport Hub"),
+    ("OTHER", "Other"),
+]
 
     name = models.CharField(max_length=120)
     area = models.ForeignKey(
