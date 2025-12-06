@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from accounts.models import MerchantProfile
 
 # Area Model
 class Area(models.Model):
@@ -12,32 +13,34 @@ class Area(models.Model):
 # Place Model
 class Place(models.Model):
     CATEGORY_CHOICES = [
-    ("PARK", "Park"),
-    ("MUSEUM", "Museum"),
-    ("RESTAURANT", "Restaurant"),
-    ("CAFE", "Cafe"),
-    ("STREET_FOOD", "Street Food"),
-    ("FAST_FOOD", "Fast Food"),
-    ("BAKERY", "Bakery"),
-    ("MALL", "Mall"),
-    ("SHOP", "Shop"),
-    ("LOCAL_MARKET", "Local Market"),
-    ("SUPERMARKET", "Supermarket"),
-    ("HISTORICAL_SITE", "Historical Site"),
-    ("LANDMARK", "Landmark"),
-    ("LAKE", "Lake"),
-    ("BEACH", "Beach"),
-    ("ZOO", "Zoo"),
-    ("CINEMA", "Cinema"),
-    ("AMUSEMENT_PARK", "Amusement Park"),
-    ("SPORTS_COMPLEX", "Sports Complex"),
-    ("HOTEL", "Hotel"),
-    ("GUEST_HOUSE", "Guest House"),
-    ("TRANSPORT", "Transport Hub"),
-    ("OTHER", "Other"),
-]
+        ("PARK", "Park"),
+        ("MUSEUM", "Museum"),
+        ("RESTAURANT", "Restaurant"),
+        ("CAFE", "Cafe"),
+        ("STREET_FOOD", "Street Food"),
+        ("FAST_FOOD", "Fast Food"),
+        ("BAKERY", "Bakery"),
+        ("MALL", "Mall"),
+        ("SHOP", "Shop"),
+        ("LOCAL_MARKET", "Local Market"),
+        ("SUPERMARKET", "Supermarket"),
+        ("HISTORICAL_SITE", "Historical Site"),
+        ("LANDMARK", "Landmark"),
+        ("LAKE", "Lake"),
+        ("BEACH", "Beach"),
+        ("ZOO", "Zoo"),
+        ("CINEMA", "Cinema"),
+        ("AMUSEMENT_PARK", "Amusement Park"),
+        ("SPORTS_COMPLEX", "Sports Complex"),
+        ("HOTEL", "Hotel"),
+        ("GUEST_HOUSE", "Guest House"),
+        ("TRANSPORT", "Transport Hub"),
+        ("OTHER", "Other"),
+    ]
 
     name = models.CharField(max_length=120)
+
+    # which area this place belongs to
     area = models.ForeignKey(
         Area,
         on_delete=models.CASCADE,
@@ -45,12 +48,31 @@ class Place(models.Model):
         null=True,
         blank=True,
     )
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default="OTHER")
+
+    # high-level type used for Explore filters
+    category = models.CharField(
+        max_length=30,
+        choices=CATEGORY_CHOICES,
+        default="OTHER",
+    )
+
     image_url = models.URLField(blank=True)
+
+    # stored copy of average rating for fast queries (computed from Review)
     average_rating = models.FloatField(default=0.0)
 
+    # OPTIONAL: which merchant owns this place (restaurant, cafe, shop, etc.)
+    owner = models.ForeignKey(
+        MerchantProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="places",
+    )
+
     def __str__(self):
-        return f"{self.name} ({self.area.name if self.area else 'No area'})"
+        area_name = self.area.name if self.area else "No area"
+        return f"{self.name} ({area_name})"
 
 # Saved Place Model
 class SavedPlace(models.Model):
