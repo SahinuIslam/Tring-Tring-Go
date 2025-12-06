@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'core',            # your existing app
     'accounts', # the app we just created
     'travel',
+    'community', 
 ]
 
 MIDDLEWARE = [

@@ -21,6 +21,7 @@ from django.utils.dateparse import parse_time
 from .models import MerchantVerificationRequest
 
 
+
 class SignupAPIView(APIView):
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
@@ -655,6 +656,18 @@ def traveler_update_profile(request):
         },
         status=status.HTTP_200_OK,
     )
+
+# Helper to get or create TravelerProfile
+def get_or_create_traveler_profile(account):
+    """
+    Ensure this UserAccount has a TravelerProfile.
+    Useful when a MERCHANT also wants traveler features (Explore, save, rate).
+    """
+    profile, _ = TravelerProfile.objects.get_or_create(
+        user_account=account,
+        defaults={"years_in_area": 0},
+    )
+    return profile
 
 
 # Logout view
