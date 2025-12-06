@@ -1,4 +1,3 @@
-// src/MerchantDashboard.jsx
 import React, { useEffect, useState } from "react";
 
 function TopBar() {
@@ -15,6 +14,35 @@ function TopBar() {
     window.location.href = "/login";
   }
 
+  const path = window.location.pathname;
+
+  // Decide which tab is active based on URL
+  const isActive = (name) => {
+    if (name === "home") return path === "/" || path === "/home";
+    if (name === "explore") return path.startsWith("/explore");
+    if (name === "community") return path.startsWith("/community");
+    if (name === "services") return path.startsWith("/services");
+    if (name === "dashboard")
+      return (
+        path.startsWith("/traveler") ||
+        path.startsWith("/merchant") ||
+        path.startsWith("/admin") ||
+        path.startsWith("/dashboard")
+      );
+    return false;
+  };
+
+  const linkStyle = (name) => ({
+    textDecoration: "none",
+    fontSize: "0.95rem",
+    color: isActive(name) ? "#1f2937" : "#4b5563",
+    fontWeight: isActive(name) ? 700 : 500,
+    borderBottom: isActive(name)
+      ? "2px solid #1f2937"
+      : "2px solid transparent",
+    paddingBottom: "0.1rem",
+  });
+
   return (
     <div
       style={{
@@ -24,6 +52,10 @@ function TopBar() {
         marginBottom: "1rem",
         borderBottom: "1px solid #e5e7eb",
         paddingBottom: "1rem",
+        paddingTop: "0.5rem",
+        paddingInline: "1rem",
+        flexWrap: "wrap",
+        gap: "0.75rem",
       }}
     >
       <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1f2937" }}>
@@ -36,29 +68,24 @@ function TopBar() {
           alignItems: "center",
           gap: "1.25rem",
           fontSize: "0.95rem",
+          flexWrap: "wrap",
         }}
       >
-        <nav style={{ display: "flex", gap: "1.25rem" }}>
-          <a href="/" style={{ textDecoration: "none", color: "#4b5563" }}>
+        <nav style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
+          <a href="/home" style={linkStyle("home")}>
             Home
           </a>
-          <a
-            href="/explore"
-            style={{ textDecoration: "none", color: "#4b5563" }}
-          >
+          <a href="/explore" style={linkStyle("explore")}>
             Explore
           </a>
-          <a
-            href="/community"
-            style={{ textDecoration: "none", color: "#4b5563" }}
-          >
+          <a href="/community" style={linkStyle("community")}>
             Community
           </a>
-          <a
-            href="/services"
-            style={{ textDecoration: "none", color: "#4b5563" }}
-          >
+          <a href="/services" style={linkStyle("services")}>
             Services
+          </a>
+          <a href="/traveler" style={linkStyle("dashboard")}>
+            Dashboard
           </a>
         </nav>
 

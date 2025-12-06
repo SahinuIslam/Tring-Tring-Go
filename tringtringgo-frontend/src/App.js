@@ -1,6 +1,8 @@
 import "./App.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+
+// import auth pages
 import SignupPage from "./SignupPage";
 import LoginPage from "./LoginPage";
 
@@ -8,6 +10,9 @@ import LoginPage from "./LoginPage";
 import TravelerDashboard from "./pages/TravelerDashboard";
 import MerchantDashboard from "./pages/MerchantDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+
+// import community feed
+import CommunityFeed from "./CommunityFeed";
 
 function App() {
   return (
@@ -21,6 +26,8 @@ function App() {
         <Route path="/traveler" element={<TravelerDashboard />} />
         <Route path="/merchant" element={<MerchantDashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
+
+        <Route path="/community" element={<CommunityFeed />} />
 
         {/* default */}
         <Route path="/" element={<Navigate to="/login" replace />} />
