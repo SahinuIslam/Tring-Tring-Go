@@ -20,6 +20,22 @@ function LoginPage() {
   const [errors, setErrors] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  function handleLoginSuccess(data) {
+  const ttgUser = {
+    username: data.username || data.email || "",
+    email: data.email || "",
+    role: data.role,
+    token: data.token || data.username || data.email || "",
+  };
+
+  localStorage.setItem("ttg_user", JSON.stringify(ttgUser));
+
+  if (ttgUser.role === "TRAVELER") navigate("/traveler");
+  else if (ttgUser.role === "MERCHANT") navigate("/merchant");
+  else if (ttgUser.role === "ADMIN") navigate("/admin");
+  else navigate("/traveler");
+}
+
   // Handle typing in inputs
   function handleChange(e) {
     const { name, value } = e.target;
@@ -27,100 +43,78 @@ function LoginPage() {
   }
 
   // 3) Normal username/password login (Django /login/)
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-    setMessage("");
-    setErrors(null);
+async function handleSubmit(e) {
+  e.preventDefault();
+  setLoading(true);
+  setMessage("");
+  setErrors(null);
 
-    try {
-      const resp = await fetch("http://127.0.0.1:8000/api/accounts/login/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-        credentials: "include",
-        mode: "cors"  // include cookies for session auth
-      });
+  try {
+    const resp = await fetch("http://127.0.0.1:8000/api/accounts/login/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData),
+      credentials: "include",
+      mode: "cors",
+    });
 
-      if (resp.ok) {
-        const data = await resp.json();
-        setMessage(data.message || "Login successful!");
+    const data = await resp.json().catch(() => ({}));
 
-        // Save minimal info in browser
-        localStorage.setItem(
-          "ttg_user",
-          JSON.stringify({
-            username: data.username,
-            email: data.email,
-            role: data.role,
-            token: data.token,
-          })
-        );
-
-        // Role-based redirect
-        if (data.role === "TRAVELER") navigate("/traveler");
-        else if (data.role === "MERCHANT") navigate("/merchant");
-        else if (data.role === "ADMIN") navigate("/admin");
-      } else {
-        const errData = await resp.json();
-        setErrors(errData);
-      }
-    } catch {
-      setErrors({ detail: "Network error. Please try again." });
-    } finally {
-      setLoading(false);
+    if (resp.ok) {
+      setMessage(data.message || "Login successful!");
+      handleLoginSuccess(data);
+    } else {
+      setErrors(data);
     }
+  } catch {
+    setErrors({ detail: "Network error. Please try again." });
+  } finally {
+    setLoading(false);
   }
+}
+
 
   // 4) Google login using Firebase + Django /google-login/
   async function handleGoogleLogin() {
-    setLoading(true);
-    setMessage("");
-    setErrors(null);
+  setLoading(true);
+  setMessage("");
+  setErrors(null);
 
-    try {
-      // Open Google popup in browser
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+    const idToken = await user.getIdToken();
 
-      // Get Firebase ID token to send to Django
-      const idToken = await user.getIdToken();
-
-      const resp = await fetch(
-        "http://127.0.0.1:8000/api/accounts/google-login/",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id_token: idToken }),
-        }
-      );
-
-      if (resp.ok) {
-        const data = await resp.json();
-        setMessage(data.message || "Google login successful!");
-
-        localStorage.setItem(
-          "ttg_user",
-          JSON.stringify({
-            email: data.email,
-            role: data.role,
-          })
-        );
-
-        if (data.role === "TRAVELER") navigate("/traveler");
-        else if (data.role === "MERCHANT") navigate("/merchant");
-        else if (data.role === "ADMIN") navigate("/admin");
-      } else {
-        const errData = await resp.json();
-        setErrors(errData);
+    const resp = await fetch(
+      "http://127.0.0.1:8000/api/accounts/google-login/",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: idToken }),
       }
-    } catch (err) {
-      console.error(err);
-      setErrors({ detail: "Google login failed." });
-    } finally {
-      setLoading(false);
+    );
+
+    const data = await resp.json().catch(() => ({}));
+
+    if (resp.ok) {
+      setMessage(data.message || "Google login successful!");
+      handleLoginSuccess({
+        username: data.username || user.displayName || data.email,
+        email: data.email,
+        role: data.role,
+        token: data.token,
+      });
+    } else {
+      setErrors(data);
     }
+  } catch (err) {
+    console.error(err);
+    setErrors({ detail: "Google login failed." });
+  } finally {
+    setLoading(false);
   }
+}
+
 
   // 5) Forgot password via Firebase
   async function handleForgotPassword() {

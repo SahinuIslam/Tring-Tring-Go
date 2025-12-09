@@ -17,6 +17,17 @@ function TopBar() {
   }
 
   const path = window.location.pathname;
+  const stored = localStorage.getItem("ttg_user");
+  const parsed = stored ? JSON.parse(stored) : null;
+  const role = parsed?.role || "TRAVELER";
+
+  // Decide dashboard link by role
+  const dashboardHref =
+    role === "MERCHANT"
+      ? "/merchant"
+      : role === "ADMIN"
+      ? "/admin"
+      : "/traveler";
 
   const isActive = (name) => {
     if (name === "home") return path === "/" || path === "/home";
@@ -85,7 +96,7 @@ function TopBar() {
           <a href="/services" style={linkStyle("services")}>
             Services
           </a>
-          <a href="/traveler" style={linkStyle("dashboard")}>
+          <a href={dashboardHref} style={linkStyle("dashboard")}>
             Dashboard
           </a>
         </nav>
