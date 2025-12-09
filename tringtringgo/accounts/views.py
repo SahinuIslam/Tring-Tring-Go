@@ -73,11 +73,14 @@ class GoogleLoginAPIView(APIView):
         return Response(
             {
                 "message": "Google login successful.",
+                "username": user.username,          
                 "email": email,
                 "role": user_account.role,
+                "token": user.username,            
             },
             status=status.HTTP_200_OK,
         )
+
 
 
 class LoginAPIView(APIView):
@@ -123,15 +126,12 @@ def traveler_dashboard(request):
         return Response({"detail": "Invalid user token."}, status=status.HTTP_401_UNAUTHORIZED)
 
     account, _ = UserAccount.objects.get_or_create(
-        user=user, defaults={"role": "TRAVELER"}
+        user=user,
+        defaults={"role": "TRAVELER"},
     )
 
-    if account.role != "TRAVELER":
-        return Response({"detail": "Traveler access only"}, status=status.HTTP_403_FORBIDDEN)
-
-    profile, _ = TravelerProfile.objects.get_or_create(
-        user_account=account, defaults={"years_in_area": 0}
-    )
+    # IMPORTANT: do NOT block merchants here; just ensure traveler profile exists
+    profile = get_or_create_traveler_profile(account)
 
     area = profile.area.name if profile.area else "Not set"
     years_in_area = profile.years_in_area
@@ -153,7 +153,7 @@ def traveler_dashboard(request):
         "user": {
             "username": user.username,
             "email": user.email,
-            "role": account.role,
+            "role": account.role,  # could be MERCHANT, TRAVELER, ADMIN
         },
         "profile": {
             "area": area,
@@ -164,6 +164,7 @@ def traveler_dashboard(request):
         "login_history": login_history,
     }
     return Response(data)
+
 
 
 # Merchant dashboard view
@@ -608,20 +609,26 @@ def me_view(request):
 def traveler_update_profile(request):
     token = request.headers.get("X-User-Token")
     if not token:
-        return Response({"detail": "Not logged in."}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(
+            {"detail": "Not logged in."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
     try:
         user = User.objects.get(username=token)
     except User.DoesNotExist:
-        return Response({"detail": "Invalid user token."}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(
+            {"detail": "Invalid user token."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
-    account, _ = UserAccount.objects.get_or_create(user=user, defaults={"role": "TRAVELER"})
-    if account.role != "TRAVELER":
-        return Response({"detail": "Traveler access only"}, status=status.HTTP_403_FORBIDDEN)
-
-    profile, _ = TravelerProfile.objects.get_or_create(
-        user_account=account, defaults={"years_in_area": 0}
+    account, _ = UserAccount.objects.get_or_create(
+        user=user,
+        defaults={"role": "TRAVELER"},
     )
+
+    # IMPORTANT: do NOT block merchants here
+    profile = get_or_create_traveler_profile(account)
 
     area_id = request.data.get("area_id")
     years_in_area = request.data.get("years_in_area", profile.years_in_area)
@@ -656,6 +663,7 @@ def traveler_update_profile(request):
         },
         status=status.HTTP_200_OK,
     )
+
 
 # Helper to get or create TravelerProfile
 def get_or_create_traveler_profile(account):

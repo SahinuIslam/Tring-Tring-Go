@@ -19,17 +19,15 @@ function TopBar() {
 
   const stored = localStorage.getItem("ttg_user");
   const parsed = stored ? JSON.parse(stored) : null;
-  const role = parsed?.role || "TRAVELER";
+  const mode = parsed?.mode || parsed?.role || "TRAVELER";
 
-  // Decide dashboard link by role
   const dashboardHref =
-    role === "MERCHANT"
+    mode === "MERCHANT"
       ? "/merchant"
-      : role === "ADMIN"
+      : mode === "ADMIN"
       ? "/admin"
       : "/traveler";
 
-  // Decide which tab is active based on URL
   const isActive = (name) => {
     if (name === "home") return path === "/" || path === "/home";
     if (name === "explore") return path.startsWith("/explore");
@@ -124,6 +122,12 @@ function TopBar() {
 }
 
 function TravelerDashboard() {
+  // read real role and mode
+  const storedUser = localStorage.getItem("ttg_user");
+  const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+  const realRole = parsedUser?.role || "TRAVELER";
+  const mode = parsedUser?.mode || realRole;
+
   // Dashboard data
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -134,7 +138,6 @@ function TravelerDashboard() {
   const [form, setForm] = useState({ area_id: "", years_in_area: "" });
   const [message, setMessage] = useState("");
   const [showEditProfile, setShowEditProfile] = useState(false);
-  // Areas for dropdown
   const [areas, setAreas] = useState([]);
 
   // Saved places
@@ -167,7 +170,6 @@ function TravelerDashboard() {
   const [allPlacesLoading, setAllPlacesLoading] = useState(true);
   const [allPlacesError, setAllPlacesError] = useState(null);
 
-  // Format datetime nicely
   function formatDateTime(isoString) {
     if (!isoString) return "";
     const d = new Date(isoString);
@@ -180,7 +182,6 @@ function TravelerDashboard() {
     });
   }
 
-  // Load dashboard + saved places + places + reviews
   useEffect(() => {
     async function loadData() {
       try {
@@ -230,7 +231,7 @@ function TravelerDashboard() {
           setSavedError(null);
         }
 
-        // All places (for review dropdown)
+        // All places
         setAllPlacesLoading(true);
         const placesResp = await fetch(
           "http://127.0.0.1:8000/api/travel/places/"
@@ -262,10 +263,8 @@ function TravelerDashboard() {
           setReviewsError(null);
         }
 
-        // Areas list
-        const areasResp = await fetch(
-          "http://127.0.0.1:8000/api/travel/areas/"
-        );
+        // Areas
+        const areasResp = await fetch("http://127.0.0.1:8000/api/travel/areas/");
         if (areasResp.ok) {
           const areasData = await areasResp.json();
           setAreas(areasData);
@@ -289,7 +288,6 @@ function TravelerDashboard() {
     setForm((prev) => ({ ...prev, [name]: value }));
   }
 
-  // Save profile edits
   async function handleSaveProfile(e) {
     e.preventDefault();
     setSaving(true);
@@ -344,7 +342,6 @@ function TravelerDashboard() {
     }
   }
 
-  // Remove saved place
   async function handleRemoveSaved(id) {
     try {
       const stored = localStorage.getItem("ttg_user");
@@ -412,7 +409,6 @@ function TravelerDashboard() {
         );
       }
 
-      // Add new review at top of list
       setReviews((prev) => [body, ...prev]);
       setNewReview({ place: "", rating: 5, title: "", text: "" });
     } catch (err) {
@@ -503,7 +499,6 @@ function TravelerDashboard() {
     }
   }
 
-  // Loading / error states
   if (loading) {
     return (
       <div className="dashboard-page">
@@ -544,138 +539,34 @@ function TravelerDashboard() {
 
   return (
     <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
-      <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 900px;
-          background: white;
-          padding: 2rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
-        }
-        .user-welcome {
-          font-size: 1.125rem;
-          margin-bottom: 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
-          padding-bottom: 0.75rem;
-        }
-        .stats-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        .stat-card {
-          padding: 1rem;
-          background-color: #f9fafb;
-          border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
-        }
-        .stat-card h3 {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: #6b7280;
-          margin-bottom: 0.25rem;
-        }
-        .stat-card p {
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: #1f2937;
-        }
-        .auth-form .form-row {
-          margin-bottom: 1rem;
-        }
-        .auth-form label {
-          display: block;
-          margin-bottom: 0.25rem;
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: #374151;
-        }
-        .auth-form input {
-          width: 100%;
-          padding: 0.5rem 0.75rem;
-          border: 1px solid #d1d5db;
-          border-radius: 0.375rem;
-          box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
-        }
-        .primary-btn {
-          padding: 0.6rem 1.25rem;
-          border: none;
-          border-radius: 0.5rem;
-          background-color: #3b82f6;
-          color: white;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        .primary-btn:hover:enabled {
-          background-color: #2563eb;
-        }
-        .primary-btn:disabled {
-          background-color: #93c5fd;
-          cursor: not-allowed;
-        }
-        .alert.success {
-          padding: 0.75rem 1rem;
-          background-color: #d1fae5;
-          color: #065f46;
-          border: 1px solid #6ee7b7;
-          border-radius: 0.375rem;
-          font-size: 0.9rem;
-        }
-        section ul {
-          list-style: none;
-          padding-left: 0;
-          margin-top: 0.5rem;
-        }
-        section ul li {
-          background-color: #f3f4f6;
-          padding: 0.5rem 0.75rem;
-          border-radius: 0.375rem;
-          margin-bottom: 0.5rem;
-          font-size: 0.9rem;
-          border-left: 4px solid #3b82f6;
-        }
-      `}</style>
-
       <div className="dashboard-card">
         <TopBar />
 
-        <h2 className="text-2xl font-bold text-gray-800">Traveler Dashboard</h2>
-        <div className="user-welcome">
-          Welcome, <strong>{user.username}</strong>{" "}
-          <span style={{ fontSize: "0.9rem", opacity: 0.9 }}></span>
-        </div>
+        {parsedUser && realRole === "MERCHANT" && mode !== "MERCHANT" && (
+          <button
+            type="button"
+            className="primary-btn"
+            style={{ marginBottom: "0.75rem", marginRight: "0.5rem" }}
+            onClick={() => {
+              const updated = { ...parsedUser, mode: "MERCHANT" };
+              localStorage.setItem("ttg_user", JSON.stringify(updated));
+              window.location.href = "/merchant";
+            }}
+          >
+            Switch to merchant mode
+          </button>
+        )}
 
-        {/* Summary cards */}
-        <div className="stats-row">
-          <div className="stat-card">
-            <h3>Area</h3>
-            <p>{profile.area}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Years in area</h3>
-            <p>{profile.years_in_area}</p>
-          </div>
-        </div>
-
-        {/* Profile details */}
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">Profile details</h3>
-          <p>
-            <strong>Name:</strong> {user.username}
-          </p>
-          <p>
-            <strong>Email:</strong> {user.email || "Not set"}
-          </p>
-          <p>
-            <strong>Area:</strong> {profile.area}
-          </p>
-          <p>
-            <strong>Years in area:</strong> {profile.years_in_area}
-          </p>
-        </section>
+        <h2>🧳 Traveler Dashboard</h2>
+        <p>
+          <strong>Name:</strong> {user.username}
+        </p>
+        <p>
+          <strong>Area:</strong> {profile.area}
+        </p>
+        <p>
+          <strong>Years in area:</strong> {profile.years_in_area}
+        </p>
 
         {/* Edit profile (collapsible) */}
         <section style={{ marginTop: "1.5rem" }}>

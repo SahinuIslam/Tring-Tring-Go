@@ -5,12 +5,10 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.views.decorators.csrf import csrf_exempt
 
-from accounts.models import UserAccount
+from accounts.models import UserAccount, TravelerProfile
 from .serializers import SavedPlaceSerializer, PlaceSerializer, ReviewSerializer
 from .models import Place, SavedPlace, Review, Area
-
-
-
+from accounts.views import get_or_create_traveler_profile
 
 def _get_traveler_from_token(request):
     token = request.headers.get("X-User-Token")
@@ -29,15 +27,15 @@ def _get_traveler_from_token(request):
         )
 
     account, _ = UserAccount.objects.get_or_create(
-        user=user, defaults={"role": "TRAVELER"}
+        user=user,
+        defaults={"role": "TRAVELER"},
     )
-    if account.role != "TRAVELER":
-        return None, Response(
-            {"detail": "Traveler access only."},
-            status=status.HTTP_403_FORBIDDEN,
-        )
+
+    # Key change: do NOT restrict by role here
+    traveler_profile = get_or_create_traveler_profile(account)
 
     return account, None
+
 
 
 @csrf_exempt

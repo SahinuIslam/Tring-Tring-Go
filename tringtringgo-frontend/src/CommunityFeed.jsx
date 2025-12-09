@@ -455,15 +455,21 @@ function CommunityFeed() {
             </div>
           </div>
 
-          <div style={{ marginBottom: "0.75rem" }}>
-            <button
-              type="button"
-              className={showNewPost ? "primary-btn-outline" : "primary-btn"}
-              onClick={() => setShowNewPost((p) => !p)}
-            >
-              {showNewPost ? "Cancel" : "Create a post"}
-            </button>
-          </div>
+<div style={{ marginBottom: "0.75rem" }}>
+  <button
+    type="button"
+    className={showNewPost ? "primary-btn-outline" : "primary-btn"}
+    onClick={() => {
+      if (!token) {
+        alert("You must be logged in as traveler to post.");
+        return;
+      }
+      setShowNewPost((p) => !p);
+    }}
+  >
+    {showNewPost ? "Cancel" : "Create a post"}
+  </button>
+</div>
 
           {showNewPost && (
             <NewPostForm

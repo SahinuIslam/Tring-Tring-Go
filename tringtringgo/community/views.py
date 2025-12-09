@@ -77,9 +77,6 @@ def community_posts(request):
     if error_resp:
         return error_resp
 
-    if account.role != "TRAVELER":
-        return Response({"detail": "Traveler access only"},
-                        status=status.HTTP_403_FORBIDDEN)
 
     title = request.data.get("title", "").strip()
     category = request.data.get("category")
@@ -179,10 +176,6 @@ def community_add_comment(request, post_id):
     if error_resp:
         return error_resp
 
-    if account.role != "TRAVELER":
-        return Response({"detail": "Traveler access only"},
-                        status=status.HTTP_403_FORBIDDEN)
-
     post = get_object_or_404(CommunityPost, id=post_id)
 
     text = (request.data.get("text") or "").strip()
@@ -219,10 +212,6 @@ def community_react(request, post_id):
     account, error_resp = get_account_from_token(request)
     if error_resp:
         return error_resp
-
-    if account.role != "TRAVELER":
-        return Response({"detail": "Traveler access only"},
-                        status=status.HTTP_403_FORBIDDEN)
 
     reaction_type = request.data.get("reaction")
     if reaction_type not in ["LIKE", "DISLIKE"]:

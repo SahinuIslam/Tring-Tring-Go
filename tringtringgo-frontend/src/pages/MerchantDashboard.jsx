@@ -18,17 +18,15 @@ function TopBar() {
 
   const stored = localStorage.getItem("ttg_user");
   const parsed = stored ? JSON.parse(stored) : null;
-  const role = parsed?.role || "TRAVELER";
+  const mode = parsed?.mode || parsed?.role || "TRAVELER";
 
-  // Decide dashboard link by role
   const dashboardHref =
-    role === "MERCHANT"
+    mode === "MERCHANT"
       ? "/merchant"
-      : role === "ADMIN"
+      : mode === "ADMIN"
       ? "/admin"
       : "/traveler";
 
-  // Decide which tab is active based on URL
   const isActive = (name) => {
     if (name === "home") return path === "/" || path === "/home";
     if (name === "explore") return path.startsWith("/explore");
@@ -153,6 +151,11 @@ function MerchantDashboard() {
   const [showEdit, setShowEdit] = useState(false);
   const [requesting, setRequesting] = useState(false);
 
+  const storedUser = localStorage.getItem("ttg_user");
+  const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+  const realRole = parsedUser?.role || "TRAVELER";
+  const mode = parsedUser?.mode || realRole;
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -204,9 +207,7 @@ function MerchantDashboard() {
         });
 
         setAreasLoading(true);
-        const areasResp = await fetch(
-          "http://127.0.0.1:8000/api/travel/areas/"
-        );
+        const areasResp = await fetch("http://127.0.0.1:8000/api/travel/areas/");
         if (areasResp.ok) {
           const areasData = await areasResp.json();
           setAreas(areasData);
@@ -440,6 +441,21 @@ function MerchantDashboard() {
       <div className="dashboard-card">
         <TopBar />
 
+        {parsedUser && realRole === "MERCHANT" && mode !== "TRAVELER" && (
+          <button
+            type="button"
+            className="primary-btn"
+            style={{ marginBottom: "0.75rem", marginRight: "0.5rem" }}
+            onClick={() => {
+              const updated = { ...parsedUser, mode: "TRAVELER" };
+              localStorage.setItem("ttg_user", JSON.stringify(updated));
+              window.location.href = "/traveler";
+            }}
+          >
+            Switch to traveler mode
+          </button>
+        )}
+
         <h2 className="text-2xl font-bold text-gray-800">Merchant Dashboard</h2>
         <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>
           {apiMessage}
@@ -474,7 +490,6 @@ function MerchantDashboard() {
           </div>
         )}
 
-        {/* Summary cards */}
         <div className="stats-row">
           <div className="stat-card">
             <h3>Shop name</h3>
@@ -494,11 +509,10 @@ function MerchantDashboard() {
           </div>
         </div>
 
-        {/* Profile details */}
         <section style={{ marginTop: "0.5rem" }}>
           <h3 className="text-xl font-semibold mb-2">Business details</h3>
           <p>
-            <strong>Role:</strong> {role}
+            <strong>Role:</strong> {role} (mode: {mode})
           </p>
           <p>
             <strong>Business type:</strong> {profile.business_type || "Not set"}
@@ -527,7 +541,6 @@ function MerchantDashboard() {
           )}
         </section>
 
-        {/* Request verification button */}
         <div style={{ marginTop: "0.75rem", marginBottom: "0.75rem" }}>
           <button
             type="button"

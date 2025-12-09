@@ -1,122 +1,112 @@
 // src/LoginPage.jsx
-// 1) React + Router + Firebase imports
 import React, { useState } from "react";
 import { auth, googleProvider } from "./firebase";
 import { signInWithPopup, sendPasswordResetEmail } from "firebase/auth";
 import { Link, useNavigate } from "react-router-dom";
 
-// 2) Component start
 function LoginPage() {
-  // For redirecting after login
   const navigate = useNavigate();
 
-  // Form state
   const [formData, setFormData] = useState({
     username_or_email: "",
     password: "",
   });
-  // UI state
   const [message, setMessage] = useState("");
   const [errors, setErrors] = useState(null);
   const [loading, setLoading] = useState(false);
 
   function handleLoginSuccess(data) {
-  const ttgUser = {
-    username: data.username || data.email || "",
-    email: data.email || "",
-    role: data.role,
-    token: data.token || data.username || data.email || "",
-  };
+    const ttgUser = {
+      username: data.username || data.email || "",
+      email: data.email || "",
+      role: data.role, // real backend role
+      mode: data.role, // start in same mode as role
+      token: data.token || data.username || data.email || "",
+    };
 
-  localStorage.setItem("ttg_user", JSON.stringify(ttgUser));
+    localStorage.setItem("ttg_user", JSON.stringify(ttgUser));
 
-  if (ttgUser.role === "TRAVELER") navigate("/traveler");
-  else if (ttgUser.role === "MERCHANT") navigate("/merchant");
-  else if (ttgUser.role === "ADMIN") navigate("/admin");
-  else navigate("/traveler");
-}
+    if (ttgUser.mode === "TRAVELER") navigate("/traveler");
+    else if (ttgUser.mode === "MERCHANT") navigate("/merchant");
+    else if (ttgUser.mode === "ADMIN") navigate("/admin");
+    else navigate("/traveler");
+  }
 
-  // Handle typing in inputs
   function handleChange(e) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   }
 
-  // 3) Normal username/password login (Django /login/)
-async function handleSubmit(e) {
-  e.preventDefault();
-  setLoading(true);
-  setMessage("");
-  setErrors(null);
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+    setErrors(null);
 
-  try {
-    const resp = await fetch("http://127.0.0.1:8000/api/accounts/login/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-      credentials: "include",
-      mode: "cors",
-    });
-
-    const data = await resp.json().catch(() => ({}));
-
-    if (resp.ok) {
-      setMessage(data.message || "Login successful!");
-      handleLoginSuccess(data);
-    } else {
-      setErrors(data);
-    }
-  } catch {
-    setErrors({ detail: "Network error. Please try again." });
-  } finally {
-    setLoading(false);
-  }
-}
-
-
-  // 4) Google login using Firebase + Django /google-login/
-  async function handleGoogleLogin() {
-  setLoading(true);
-  setMessage("");
-  setErrors(null);
-
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    const idToken = await user.getIdToken();
-
-    const resp = await fetch(
-      "http://127.0.0.1:8000/api/accounts/google-login/",
-      {
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/api/accounts/login/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id_token: idToken }),
-      }
-    );
-
-    const data = await resp.json().catch(() => ({}));
-
-    if (resp.ok) {
-      setMessage(data.message || "Google login successful!");
-      handleLoginSuccess({
-        username: data.username || user.displayName || data.email,
-        email: data.email,
-        role: data.role,
-        token: data.token,
+        body: JSON.stringify(formData),
+        credentials: "include",
+        mode: "cors",
       });
-    } else {
-      setErrors(data);
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.ok) {
+        setMessage(data.message || "Login successful!");
+        handleLoginSuccess(data);
+      } else {
+        setErrors(data);
+      }
+    } catch {
+      setErrors({ detail: "Network error. Please try again." });
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    setErrors({ detail: "Google login failed." });
-  } finally {
-    setLoading(false);
   }
-}
 
+  async function handleGoogleLogin() {
+    setLoading(true);
+    setMessage("");
+    setErrors(null);
 
-  // 5) Forgot password via Firebase
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      const idToken = await user.getIdToken();
+
+      const resp = await fetch(
+        "http://127.0.0.1:8000/api/accounts/google-login/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_token: idToken }),
+        }
+      );
+
+      const data = await resp.json().catch(() => ({}));
+
+      if (resp.ok) {
+        setMessage(data.message || "Google login successful!");
+        handleLoginSuccess({
+          username: data.username || user.displayName || data.email,
+          email: data.email,
+          role: data.role,
+          token: data.token,
+        });
+      } else {
+        setErrors(data);
+      }
+    } catch (err) {
+      console.error(err);
+      setErrors({ detail: "Google login failed." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleForgotPassword() {
     const email = formData.username_or_email.trim();
     setMessage("");
@@ -145,7 +135,6 @@ async function handleSubmit(e) {
     }
   }
 
-  // 6) JSX UI
   return (
     <div className="auth-page">
       <div className="auth-card">
@@ -205,7 +194,6 @@ async function handleSubmit(e) {
             </button>
           </div>
 
-          {/* Google login button */}
           <button
             type="button"
             className="primary-btn"
@@ -216,7 +204,6 @@ async function handleSubmit(e) {
             Continue with Google
           </button>
 
-          {/* Normal login button */}
           <button className="primary-btn" type="submit" disabled={loading}>
             {loading ? "Logging in..." : "Log in"}
           </button>
