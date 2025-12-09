@@ -1,4 +1,7 @@
+// src/pages/MerchantDashboard.jsx
 import React, { useEffect, useState } from "react";
+
+/* ---------- TopBar ---------- */
 
 function TopBar() {
   async function handleLogout() {
@@ -15,7 +18,6 @@ function TopBar() {
   }
 
   const path = window.location.pathname;
-
   const stored = localStorage.getItem("ttg_user");
   const parsed = stored ? JSON.parse(stored) : null;
   const mode = parsed?.mode || parsed?.role || "TRAVELER";
@@ -120,6 +122,8 @@ function TopBar() {
   );
 }
 
+/* ---------- helpers ---------- */
+
 function formatTimeToAMPM(timeStr) {
   if (!timeStr) return "Not set";
   const [h, m] = timeStr.split(":").map(Number);
@@ -128,7 +132,17 @@ function formatTimeToAMPM(timeStr) {
   return `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
 }
 
+/* ---------- MerchantDashboard ---------- */
+
 function MerchantDashboard() {
+  // read user only once
+  const storedUser = localStorage.getItem("ttg_user");
+  const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+  const realRole = parsedUser?.role || "TRAVELER";
+  const mode = parsedUser?.mode || realRole;
+  const token = parsedUser?.token || parsedUser?.username || "";
+  const isLoggedIn = !!parsedUser;
+
   const [data, setData] = useState(null);
   const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -151,41 +165,39 @@ function MerchantDashboard() {
   const [showEdit, setShowEdit] = useState(false);
   const [requesting, setRequesting] = useState(false);
 
-  const storedUser = localStorage.getItem("ttg_user");
-  const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-  const realRole = parsedUser?.role || "TRAVELER";
-  const mode = parsedUser?.mode || realRole;
-
   useEffect(() => {
+    if (!isLoggedIn) {
+      setLoading(false);
+      setError("You must log in as a merchant to view this dashboard.");
+      return;
+    }
+    if (realRole !== "MERCHANT") {
+      setLoading(false);
+      setError("Merchant dashboard is only for merchant accounts.");
+      return;
+    }
+
+    let cancelled = false;
+
     async function loadData() {
       try {
         setLoading(true);
         setError("");
         setMessage("");
 
-        const stored = localStorage.getItem("ttg_user");
-        const parsed = stored ? JSON.parse(stored) : null;
-        const token = parsed?.token || parsed?.username || "";
-
-        if (!token) {
-          throw new Error("Not logged in.");
-        }
-
         const resp = await fetch(
           "http://127.0.0.1:8000/api/accounts/dashboard/merchant/",
           {
             method: "GET",
-            headers: {
-              "X-User-Token": token,
-            },
+            headers: { "X-User-Token": token },
           }
         );
-
         const body = await resp.json().catch(() => ({}));
-
         if (!resp.ok) {
           throw new Error(body.detail || "Failed to load merchant dashboard");
         }
+
+        if (cancelled) return;
 
         setData(body);
         setEditForm({
@@ -210,19 +222,26 @@ function MerchantDashboard() {
         const areasResp = await fetch("http://127.0.0.1:8000/api/travel/areas/");
         if (areasResp.ok) {
           const areasData = await areasResp.json();
-          setAreas(areasData);
+          if (!cancelled) setAreas(areasData);
         }
       } catch (err) {
-        console.error(err);
-        setError(err.message);
+        if (!cancelled) {
+          console.error(err);
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
-        setAreasLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setAreasLoading(false);
+        }
       }
     }
 
     loadData();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, realRole, token]);
 
   function handleEditChange(e) {
     const { name, value } = e.target;
@@ -236,12 +255,8 @@ function MerchantDashboard() {
     setMessage("");
 
     try {
-      const stored = localStorage.getItem("ttg_user");
-      const parsed = stored ? JSON.parse(stored) : null;
-      const token = parsed?.token || parsed?.username || "";
-
-      if (!token) {
-        throw new Error("Not logged in.");
+      if (!isLoggedIn || realRole !== "MERCHANT") {
+        throw new Error("You must log in as a merchant to update your profile.");
       }
 
       const resp = await fetch(
@@ -309,12 +324,10 @@ function MerchantDashboard() {
       setError("");
       setMessage("");
 
-      const stored = localStorage.getItem("ttg_user");
-      const parsed = stored ? JSON.parse(stored) : null;
-      const token = parsed?.token || parsed?.username || "";
-
-      if (!token) {
-        throw new Error("Not logged in.");
+      if (!isLoggedIn || realRole !== "MERCHANT") {
+        throw new Error(
+          "You must log in as a merchant to request verification."
+        );
       }
 
       const resp = await fetch(
@@ -457,9 +470,7 @@ function MerchantDashboard() {
         )}
 
         <h2 className="text-2xl font-bold text-gray-800">Merchant Dashboard</h2>
-        <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>
-          {apiMessage}
-        </p>
+        <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>{apiMessage}</p>
 
         {message && (
           <div
@@ -490,6 +501,7 @@ function MerchantDashboard() {
           </div>
         )}
 
+        {/* Summary cards */}
         <div className="stats-row">
           <div className="stat-card">
             <h3>Shop name</h3>
@@ -509,6 +521,7 @@ function MerchantDashboard() {
           </div>
         </div>
 
+        {/* Profile details */}
         <section style={{ marginTop: "0.5rem" }}>
           <h3 className="text-xl font-semibold mb-2">Business details</h3>
           <p>
@@ -524,12 +537,10 @@ function MerchantDashboard() {
             <strong>Phone:</strong> {profile.phone || "Not set"}
           </p>
           <p>
-            <strong>Opening time:</strong>{" "}
-            {formatTimeToAMPM(profile.opening_time)}
+            <strong>Opening time:</strong> {formatTimeToAMPM(profile.opening_time)}
           </p>
           <p>
-            <strong>Closing time:</strong>{" "}
-            {formatTimeToAMPM(profile.closing_time)}
+            <strong>Closing time:</strong> {formatTimeToAMPM(profile.closing_time)}
           </p>
           <p>
             <strong>Verified:</strong> {profile.is_verified ? "Yes" : "No"}
@@ -541,6 +552,7 @@ function MerchantDashboard() {
           )}
         </section>
 
+        {/* Request verification button */}
         <div style={{ marginTop: "0.75rem", marginBottom: "0.75rem" }}>
           <button
             type="button"

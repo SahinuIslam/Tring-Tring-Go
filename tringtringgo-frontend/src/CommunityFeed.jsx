@@ -1,7 +1,17 @@
-// src/CommunityFeed.jsx
 import React, { useEffect, useState } from "react";
 
-/* ---------- TopBar: same as dashboards ---------- */
+/* ---------- helpers ---------- */
+
+function getAuthMode() {
+  const stored = localStorage.getItem("ttg_user");
+  const parsed = stored ? JSON.parse(stored) : null;
+  const role = parsed?.role || null;
+  const mode = parsed?.mode || role || null;
+  return { parsed, role, mode };
+}
+
+/* ---------- TopBar ---------- */
+
 function TopBar() {
   async function handleLogout() {
     try {
@@ -17,30 +27,26 @@ function TopBar() {
   }
 
   const path = window.location.pathname;
-  const stored = localStorage.getItem("ttg_user");
-  const parsed = stored ? JSON.parse(stored) : null;
-  const role = parsed?.role || "TRAVELER";
+  const { mode } = getAuthMode();
 
-  // Decide dashboard link by role
   const dashboardHref =
-    role === "MERCHANT"
-      ? "/merchant"
-      : role === "ADMIN"
-      ? "/admin"
-      : "/traveler";
+    mode === "MERCHANT" ? "/merchant" :
+    mode === "ADMIN" ? "/admin" :
+    "/traveler";
 
   const isActive = (name) => {
     if (name === "home") return path === "/" || path === "/home";
     if (name === "explore") return path.startsWith("/explore");
     if (name === "community") return path.startsWith("/community");
     if (name === "services") return path.startsWith("/services");
-    if (name === "dashboard")
+    if (name === "dashboard") {
       return (
         path.startsWith("/traveler") ||
         path.startsWith("/merchant") ||
         path.startsWith("/admin") ||
         path.startsWith("/dashboard")
       );
+    }
     return false;
   };
 
@@ -133,6 +139,11 @@ const CATEGORY_OPTIONS = [
 ];
 
 function CommunityFeed() {
+  const { parsed: parsedUser, mode } = getAuthMode();
+  const isLoggedIn = !!parsedUser;
+  const isTravelerMode = isLoggedIn && mode === "TRAVELER";
+  const token = parsedUser?.token || parsedUser?.username || "";
+
   const [posts, setPosts] = useState([]);
   const [areas, setAreas] = useState([]);
   const [category, setCategory] = useState("ALL");
@@ -142,12 +153,7 @@ function CommunityFeed() {
   const [showNewPost, setShowNewPost] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
 
-  const token = (() => {
-    const stored = localStorage.getItem("ttg_user");
-    const parsed = stored ? JSON.parse(stored) : null;
-    return parsed?.token || parsed?.username || "";
-  })();
-
+  // Load areas
   useEffect(() => {
     async function loadAreas() {
       try {
@@ -163,6 +169,7 @@ function CommunityFeed() {
     loadAreas();
   }, []);
 
+  // Load posts
   useEffect(() => {
     async function loadPosts() {
       try {
@@ -188,12 +195,18 @@ function CommunityFeed() {
     loadPosts();
   }, [category, areaId]);
 
+  // Like / dislike
   const handleLikeDislike = async (postId, reaction) => {
     try {
-      if (!token) {
-        alert("Log in as traveler to react.");
+      if (!isLoggedIn) {
+        alert("You must log in to react.");
         return;
       }
+      if (!isTravelerMode) {
+        alert("Switch to traveler mode to react.");
+        return;
+      }
+
       const resp = await fetch(
         `http://127.0.0.1:8000/api/community/posts/${postId}/react/`,
         {
@@ -201,6 +214,7 @@ function CommunityFeed() {
           headers: {
             "Content-Type": "application/json",
             "X-User-Token": token,
+            "X-User-Mode": mode,
           },
           body: JSON.stringify({ reaction }),
         }
@@ -237,17 +251,35 @@ function CommunityFeed() {
     setShowNewPost(false);
   };
 
+  // Load a single post with comments
   const openPostDetail = async (postId) => {
     try {
       const resp = await fetch(
         `http://127.0.0.1:8000/api/community/posts/${postId}/`
       );
       const body = await resp.json().catch(() => null);
+
       if (!resp.ok) throw new Error(body?.detail || "Failed to load post");
-      if (!Array.isArray(body.comments)) body.comments = [];
-      setSelectedPost(body);
+
+      const comments = Array.isArray(body?.comments) ? body.comments : [];
+
+      const safePost = {
+        id: body?.id ?? postId,
+        title: body?.title || "",
+        description: body?.description || "",
+        category: body?.category || "PRICE_ALERT",
+        author: body?.author || "Unknown",
+        area: body?.area || "",
+        created_at: body?.created_at || new Date().toISOString(),
+        likes_count: body?.likes_count ?? 0,
+        dislikes_count: body?.dislikes_count ?? 0,
+        comments,
+        comments_count: body?.comments_count ?? comments.length,
+      };
+
+      setSelectedPost(safePost);
     } catch (e) {
-      console.error(e);
+      console.error("openPostDetail error", e);
       alert(e.message);
     }
   };
@@ -267,7 +299,6 @@ function CommunityFeed() {
         .community-container {
           margin-top: 0.5rem;
         }
-        /* rest of your community styles unchanged */
         .feed-header {
           display: flex;
           flex-direction: column;
@@ -401,24 +432,6 @@ function CommunityFeed() {
           border: 1px solid #d1d5db;
           margin-bottom: 0.5rem;
         }
-        .modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.45);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 40;
-        }
-        .modal {
-          background: white;
-          max-width: 640px;
-          width: 100%;
-          padding: 1rem;
-          border-radius: 0.75rem;
-          max-height: 90vh;
-          overflow-y: auto;
-        }
       `}</style>
 
       <div className="dashboard-card">
@@ -455,25 +468,32 @@ function CommunityFeed() {
             </div>
           </div>
 
-<div style={{ marginBottom: "0.75rem" }}>
-  <button
-    type="button"
-    className={showNewPost ? "primary-btn-outline" : "primary-btn"}
-    onClick={() => {
-      if (!token) {
-        alert("You must be logged in as traveler to post.");
-        return;
-      }
-      setShowNewPost((p) => !p);
-    }}
-  >
-    {showNewPost ? "Cancel" : "Create a post"}
-  </button>
-</div>
+          <div style={{ marginBottom: "0.75rem" }}>
+            <button
+              type="button"
+              className={showNewPost ? "primary-btn-outline" : "primary-btn"}
+              onClick={() => {
+                if (!isLoggedIn) {
+                  alert("You must log in to create posts.");
+                  return;
+                }
+                if (!isTravelerMode) {
+                  alert("Switch to traveler mode to create posts.");
+                  return;
+                }
+                setShowNewPost((p) => !p);
+              }}
+            >
+              {showNewPost ? "Cancel" : "Create a post"}
+            </button>
+          </div>
 
           {showNewPost && (
             <NewPostForm
               token={token}
+              mode={mode}
+              isLoggedIn={isLoggedIn}
+              isTravelerMode={isTravelerMode}
               areas={areas}
               onCreated={handlePostCreated}
             />
@@ -503,6 +523,9 @@ function CommunityFeed() {
             <PostDetailModal
               post={selectedPost}
               token={token}
+              mode={mode}
+              isLoggedIn={isLoggedIn}
+              isTravelerMode={isTravelerMode}
               onClose={() => setSelectedPost(null)}
               onReact={handleLikeDislike}
               onUpdate={setSelectedPost}
@@ -514,7 +537,7 @@ function CommunityFeed() {
   );
 }
 
-/* --- rest of components (same as you have) --- */
+/* ---------- components ---------- */
 
 function FilterBar({ category, onChange }) {
   return (
@@ -536,26 +559,32 @@ function FilterBar({ category, onChange }) {
 }
 
 function PostCard({ post, onOpen, onReact }) {
+  const createdAt = post.created_at
+    ? new Date(post.created_at).toLocaleString()
+    : "";
+  const commentsCount = post.comments_count ?? 0;
+  const likesCount = post.likes_count ?? 0;
+  const dislikesCount = post.dislikes_count ?? 0;
+
   return (
     <div className="post-card">
       <div className="post-title" onClick={onOpen}>
         {renderCategoryIcon(post.category)} {post.title}
       </div>
       <div className="post-meta">
-        {post.author} • {new Date(post.created_at).toLocaleString()}{" "}
-        {post.area ? `• ${post.area}` : ""}
+        {post.author} • {createdAt} {post.area ? `• ${post.area}` : ""}
       </div>
       <div className="post-desc">
-        {post.description.length > 140
+        {post.description && post.description.length > 140
           ? post.description.slice(0, 140) + "…"
           : post.description}
       </div>
       <div className="post-footer">
         <button type="button" className="reaction-btn" onClick={onOpen}>
-          💬 {post.comments_count} comments
+          💬 {commentsCount} comments
         </button>
         <span>
-          • 👍 {post.likes_count} • 👎 {post.dislikes_count}
+          • 👍 {likesCount} • 👎 {dislikesCount}
         </span>
         <button
           type="button"
@@ -576,7 +605,7 @@ function PostCard({ post, onOpen, onReact }) {
   );
 }
 
-function NewPostForm({ token, areas, onCreated }) {
+function NewPostForm({ token, mode, isLoggedIn, isTravelerMode, areas, onCreated }) {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("PRICE_ALERT");
   const [areaId, setAreaId] = useState("");
@@ -586,8 +615,12 @@ function NewPostForm({ token, areas, onCreated }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!token) {
-      setError("You must be logged in as traveler to post.");
+    if (!isLoggedIn) {
+      setError("You must log in to create posts.");
+      return;
+    }
+    if (!isTravelerMode) {
+      setError("Switch to traveler mode to create posts.");
       return;
     }
     if (!areaId) {
@@ -602,6 +635,7 @@ function NewPostForm({ token, areas, onCreated }) {
         headers: {
           "Content-Type": "application/json",
           "X-User-Token": token,
+          "X-User-Mode": mode,
         },
         body: JSON.stringify({
           title,
@@ -690,191 +724,326 @@ function NewPostForm({ token, areas, onCreated }) {
   );
 }
 
-function PostDetailModal({ post, token, onClose, onReact, onUpdate }) {
+function PostDetailModal({
+  post,
+  token,
+  mode,
+  isLoggedIn,
+  isTravelerMode,
+  onClose,
+  onReact,
+  onUpdate,
+}) {
   const [commentText, setCommentText] = useState("");
-  const [savingComment, setSavingComment] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleComment = async (e) => {
-    e.preventDefault();
-    if (!token) {
-      alert("Log in as traveler to comment.");
+  const safePost = post || {};
+  const comments = Array.isArray(safePost.comments) ? safePost.comments : [];
+  const commentsCount = safePost.comments_count ?? comments.length ?? 0;
+  const likesCount = safePost.likes_count ?? 0;
+  const dislikesCount = safePost.dislikes_count ?? 0;
+  const createdAt = safePost.created_at
+    ? new Date(safePost.created_at).toLocaleString()
+    : "";
+
+  const handleAddComment = async () => {
+    if (!isLoggedIn) {
+      alert("You must log in to comment.");
+      return;
+    }
+    if (!isTravelerMode) {
+      alert("Switch to traveler mode to comment.");
       return;
     }
     if (!commentText.trim()) return;
 
-    setSavingComment(true);
     try {
-      const resp = await fetch(
-        `http://127.0.0.1:8000/api/community/posts/${post.id}/comments/`,
+      setSubmitting(true);
+
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/community/posts/${safePost.id}/comments/`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             "X-User-Token": token,
+            "X-User-Mode": mode,
           },
-          body: JSON.stringify({ text: commentText }),
+          body: JSON.stringify({ text: commentText.trim() }),
         }
       );
-      const body = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(body.detail || "Failed to add comment");
 
-      const newComment = {
-        id: body.id,
-        author: body.author,
-        text: body.text,
-        created_at: body.created_at,
-      };
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.detail || "Failed to add comment");
 
-      onUpdate({
-        ...post,
-        comments: [...post.comments, newComment],
-        comments_count: body.comments_count,
+      onUpdate((prev) => {
+        const prevPost = prev || {};
+        const prevComments = Array.isArray(prevPost.comments)
+          ? prevPost.comments
+          : [];
+        const prevCount =
+          prevPost.comments_count ?? prevComments.length ?? 0;
+
+        return {
+          ...prevPost,
+          comments: [body, ...prevComments],
+          comments_count: prevCount + 1,
+        };
       });
 
       setCommentText("");
-    } catch (e) {
-      console.error(e);
-      alert(e.message);
+    } catch (err) {
+      alert(err.message);
     } finally {
-      setSavingComment(false);
+      setSubmitting(false);
     }
   };
 
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "auto";
+    };
+  }, []);
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <>
       <div
-        className="modal"
-        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.75)",
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+        onClick={onClose}
       >
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginBottom: "0.5rem",
+            backgroundColor: "white",
+            maxWidth: "640px",
+            width: "90%",
+            maxHeight: "80vh",
+            overflowY: "auto",
+            borderRadius: "12px",
+            padding: "24px",
+            zIndex: 10000,
+            position: "relative",
+            margin: "20px",
           }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <h3 style={{ fontSize: "1rem", fontWeight: 700 }}>
-            {renderCategoryIcon(post.category)} {post.title}
-          </h3>
           <button
-            type="button"
-            className="reaction-btn"
             onClick={onClose}
-          >
-            Close
-          </button>
-        </div>
-        <div
-          style={{
-            fontSize: "0.8rem",
-            color: "#6b7280",
-            marginBottom: "0.3rem",
-          }}
-        >
-          {post.author} • {new Date(post.created_at).toLocaleString()}{" "}
-          {post.area ? `• ${post.area}` : ""}
-        </div>
-        <p
-          style={{
-            fontSize: "0.9rem",
-            color: "#374151",
-            marginBottom: "0.5rem",
-          }}
-        >
-          {post.description}
-        </p>
-        <div className="post-footer" style={{ marginBottom: "0.5rem" }}>
-          <span>
-            💬 {post.comments_count} comments • 👍 {post.likes_count} • 👎{" "}
-            {post.dislikes_count}
-          </span>
-          <button
-            type="button"
-            className="reaction-btn"
-            onClick={() => onReact(post.id, "LIKE")}
-          >
-            Like
-          </button>
-          <button
-            type="button"
-            className="reaction-btn"
-            onClick={() => onReact(post.id, "DISLIKE")}
-          >
-            Dislike
-          </button>
-        </div>
-
-        <h4
-          style={{
-            fontSize: "0.9rem",
-            fontWeight: 600,
-            marginBottom: "0.25rem",
-          }}
-        >
-          Comments
-        </h4>
-        {post.comments.length === 0 ? (
-          <p style={{ fontSize: "0.8rem", color: "#6b7280" }}>
-            No comments yet.
-          </p>
-        ) : (
-          <div style={{ marginBottom: "0.5rem" }}>
-            {post.comments.map((c) => (
-              <div key={c.id} style={{ marginBottom: "0.3rem" }}>
-                <div style={{ fontSize: "0.8rem", fontWeight: 600 }}>
-                  {c.author}{" "}
-                  <span
-                    style={{ fontWeight: 400, color: "#9ca3af", marginLeft: 4 }}
-                  >
-                    • {new Date(c.created_at).toLocaleString()}
-                  </span>
-                </div>
-                <div style={{ fontSize: "0.85rem", color: "#374151" }}>
-                  {c.text}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <form onSubmit={handleComment}>
-          <textarea
-            rows={2}
             style={{
-              width: "100%",
-              fontSize: "0.8rem",
-              padding: "0.3rem 0.4rem",
-              borderRadius: "0.375rem",
-              border: "1px solid #d1d5db",
-              marginBottom: "0.35rem",
+              position: "absolute",
+              top: "16px",
+              right: "16px",
+              background: "none",
+              border: "none",
+              fontSize: "20px",
+              cursor: "pointer",
+              color: "#6b7280",
+              zIndex: 10001,
             }}
-            placeholder="Add a comment..."
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-          />
-          <button
-            type="submit"
-            className="primary-btn"
-            disabled={savingComment}
+            type="button"
           >
-            {savingComment ? "Posting..." : "Comment"}
+            ✕
           </button>
-        </form>
+
+          <h2
+            style={{
+              fontSize: "1.2rem",
+              fontWeight: 700,
+              marginTop: 0,
+              marginRight: "30px",
+            }}
+          >
+            {renderCategoryIcon(safePost.category)} {safePost.title}
+          </h2>
+
+          <p
+            style={{
+              color: "#4b5563",
+              marginTop: "0.5rem",
+              lineHeight: 1.5,
+            }}
+          >
+            {safePost.description}
+          </p>
+
+          <p
+            style={{
+              fontSize: "0.75rem",
+              marginTop: "0.5rem",
+              color: "#6b7280",
+            }}
+          >
+            {safePost.author} • {createdAt}{" "}
+            {safePost.area ? `• ${safePost.area}` : ""}
+          </p>
+
+          <hr style={{ margin: "1rem 0", borderColor: "#e5e7eb" }} />
+
+          <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}>
+            <button
+              type="button"
+              style={{
+                background: "none",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                padding: "6px 12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "0.875rem",
+              }}
+              onClick={() => onReact(safePost.id, "LIKE")}
+            >
+              <span>👍</span>
+              <span>{likesCount}</span>
+            </button>
+            <button
+              type="button"
+              style={{
+                background: "none",
+                border: "1px solid #d1d5db",
+                borderRadius: "6px",
+                padding: "6px 12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                fontSize: "0.875rem",
+              }}
+              onClick={() => onReact(safePost.id, "DISLIKE")}
+            >
+              <span>👎</span>
+              <span>{dislikesCount}</span>
+            </button>
+          </div>
+
+          <h3 style={{ fontWeight: 600, marginBottom: "0.75rem" }}>
+            Comments ({commentsCount})
+          </h3>
+
+          <div style={{ marginBottom: "1.5rem" }}>
+            <textarea
+              placeholder="Write a comment..."
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              style={{
+                width: "100%",
+                minHeight: "80px",
+                border: "1px solid #d1d5db",
+                borderRadius: "8px",
+                padding: "12px",
+                fontSize: "0.875rem",
+                resize: "vertical",
+                fontFamily: "inherit",
+              }}
+              rows={3}
+            />
+            <button
+              type="button"
+              onClick={handleAddComment}
+              disabled={submitting}
+              style={{
+                marginTop: "0.75rem",
+                padding: "8px 16px",
+                border: "none",
+                borderRadius: "6px",
+                background: "#111827",
+                color: "white",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: submitting ? "not-allowed" : "pointer",
+                opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              {submitting ? "Posting..." : "Post Comment"}
+            </button>
+          </div>
+
+          <div style={{ marginTop: "1rem" }}>
+            {comments.length === 0 ? (
+              <p
+                style={{
+                  fontSize: "0.875rem",
+                  color: "#6b7280",
+                  textAlign: "center",
+                  padding: "20px",
+                }}
+              >
+                No comments yet. Be the first to comment!
+              </p>
+            ) : (
+              comments.map((c) => (
+                <div
+                  key={c.id}
+                  style={{
+                    padding: "12px 0",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    <div
+                      style={{ fontSize: "0.875rem", fontWeight: 600 }}
+                    >
+                      {c.author}
+                    </div>
+                    <div
+                      style={{ fontSize: "0.7rem", color: "#6b7280" }}
+                    >
+                      {c.created_at
+                        ? new Date(c.created_at).toLocaleString()
+                        : ""}
+                    </div>
+                  </div>
+                  <p
+                    style={{
+                      fontSize: "0.875rem",
+                      margin: 0,
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {c.text}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
+
+/* ---------- icon helper ---------- */
 
 function renderCategoryIcon(cat) {
   switch (cat) {
     case "PRICE_ALERT":
-      return "🚨";
+      return "💲";
     case "TRAFFIC":
-      return "🚗";
+      return "🚦";
     case "FOOD_TIPS":
-      return "🍽️";
+      return "🍔";
     case "LOST_FOUND":
-      return "🧭";
+      return "🔎";
     default:
       return "📌";
   }

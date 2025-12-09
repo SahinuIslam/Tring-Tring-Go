@@ -1,10 +1,13 @@
+from statistics import mode
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.models import User
+
+from httpx import request
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth.models import User
 
 from accounts.models import UserAccount
 from travel.models import Area
@@ -14,20 +17,26 @@ from .models import CommunityPost, CommunityComment, CommunityReaction
 def get_account_from_token(request):
     token = request.headers.get("X-User-Token")
     if not token:
-        return None, Response({"detail": "Not logged in."},
-                              status=status.HTTP_401_UNAUTHORIZED)
+        return None, Response(
+            {"detail": "Not logged in."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
     try:
         user = User.objects.get(username=token)
     except User.DoesNotExist:
-        return None, Response({"detail": "Invalid user token."},
-                              status=status.HTTP_401_UNAUTHORIZED)
+        return None, Response(
+            {"detail": "Invalid user token."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
     try:
         account = UserAccount.objects.get(user=user)
     except UserAccount.DoesNotExist:
-        return None, Response({"detail": "User account not found."},
-                              status=status.HTTP_401_UNAUTHORIZED)
+        return None, Response(
+            {"detail": "User account not found."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
 
     return account, None
 
@@ -37,7 +46,7 @@ def get_account_from_token(request):
 @permission_classes([AllowAny])
 def community_posts(request):
     if request.method == "GET":
-        category = request.GET.get("category")  
+        category = request.GET.get("category")
         area_id = request.GET.get("area_id")
 
         qs = CommunityPost.objects.all().select_related("author__user", "area")
@@ -50,33 +59,45 @@ def community_posts(request):
                 area_id_int = int(area_id)
                 qs = qs.filter(area_id=area_id_int)
             except ValueError:
-                return Response({"detail": "Invalid area_id"},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "Invalid area_id"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        data = [
-            {
-                "id": post.id,
-                "title": post.title,
-                "category": post.category,
-                "category_label": post.get_category_display(),
-                "area": post.area.name if post.area else None,
-                "area_id": post.area.id if post.area else None,
-                "description": post.description,
-                "created_at": post.created_at.isoformat(),
-                "author": post.author.user.username,
-                "comments_count": post.comments_count,
-                "likes_count": post.likes_count,
-                "dislikes_count": post.dislikes_count,
-            }
-            for post in qs
-        ]
+        data = []
+        for post in qs:
+            comments_count = post.comments.count()
+            likes_count = post.reactions.filter(reaction="LIKE").count()
+            dislikes_count = post.reactions.filter(reaction="DISLIKE").count()
+
+            data.append(
+                {
+                    "id": post.id,
+                    "title": post.title,
+                    "category": post.category,
+                    "category_label": post.get_category_display(),
+                    "area": post.area.name if post.area else None,
+                    "area_id": post.area.id if post.area else None,
+                    "description": post.description,
+                    "created_at": post.created_at.isoformat(),
+                    "author": post.author.user.username,
+                    "comments_count": comments_count,
+                    "likes_count": likes_count,
+                    "dislikes_count": dislikes_count,
+                }
+            )
         return Response(data)
 
-    # POST: create new post (traveler only for now)
+    # POST: create new post (traveler only)
     account, error_resp = get_account_from_token(request)
     if error_resp:
         return error_resp
 
+    # NEW: trust frontend mode instead of DB role
+    mode = request.headers.get("X-User-Mode")
+    if mode != "TRAVELER":
+            return Response({"detail": "Traveler access only"},
+                    status=status.HTTP_403_FORBIDDEN)
 
     title = request.data.get("title", "").strip()
     category = request.data.get("category")
@@ -89,19 +110,24 @@ def community_posts(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # area must be provided
     if not area_id:
-        return Response({"detail": "area_id is required."},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "area_id is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     try:
         area_obj = Area.objects.get(id=int(area_id))
     except (ValueError, Area.DoesNotExist):
-        return Response({"detail": "Invalid area_id."},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "Invalid area_id."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     if category not in dict(CommunityPost.CATEGORY_CHOICES):
-        return Response({"detail": "Invalid category."},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "Invalid category."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     post = CommunityPost.objects.create(
         author=account,
@@ -110,6 +136,11 @@ def community_posts(request):
         area=area_obj,
         description=description,
     )
+
+    # compute counts on the fly
+    comments_count = post.comments.count()
+    likes_count = post.reactions.filter(reaction="LIKE").count()
+    dislikes_count = post.reactions.filter(reaction="DISLIKE").count()
 
     return Response(
         {
@@ -122,9 +153,9 @@ def community_posts(request):
             "description": post.description,
             "created_at": post.created_at.isoformat(),
             "author": post.author.user.username,
-            "comments_count": post.comments_count,
-            "likes_count": post.likes_count,
-            "dislikes_count": post.dislikes_count,
+            "comments_count": comments_count,
+            "likes_count": likes_count,
+            "dislikes_count": dislikes_count,
         },
         status=status.HTTP_201_CREATED,
     )
@@ -139,7 +170,20 @@ def community_post_detail(request, post_id):
         id=post_id,
     )
 
-    comments = post.comments.select_related("author__user")
+    comments_qs = post.comments.select_related("author__user")
+    comments = [
+        {
+            "id": c.id,
+            "author": c.author.user.username,
+            "text": c.text,
+            "created_at": c.created_at.isoformat(),
+        }
+        for c in comments_qs
+    ]
+
+    comments_count = len(comments)
+    likes_count = post.reactions.filter(reaction="LIKE").count()
+    dislikes_count = post.reactions.filter(reaction="DISLIKE").count()
 
     return Response(
         {
@@ -152,18 +196,10 @@ def community_post_detail(request, post_id):
             "description": post.description,
             "created_at": post.created_at.isoformat(),
             "author": post.author.user.username,
-            "comments_count": post.comments_count,
-            "likes_count": post.likes_count,
-            "dislikes_count": post.dislikes_count,
-            "comments": [
-                {
-                    "id": c.id,
-                    "author": c.author.user.username,
-                    "text": c.text,
-                    "created_at": c.created_at.isoformat(),
-                }
-                for c in comments
-            ],
+            "comments_count": comments_count,
+            "likes_count": likes_count,
+            "dislikes_count": dislikes_count,
+            "comments": comments,
         }
     )
 
@@ -176,12 +212,19 @@ def community_add_comment(request, post_id):
     if error_resp:
         return error_resp
 
+    mode = request.headers.get("X-User-Mode")
+    if mode != "TRAVELER":
+        return Response({"detail": "Traveler access only"},
+                    status=status.HTTP_403_FORBIDDEN)
+
     post = get_object_or_404(CommunityPost, id=post_id)
 
     text = (request.data.get("text") or "").strip()
     if not text:
-        return Response({"detail": "Comment text is required."},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "Comment text is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     comment = CommunityComment.objects.create(
         post=post,
@@ -189,9 +232,7 @@ def community_add_comment(request, post_id):
         text=text,
     )
 
-    # update cached count
-    post.comments_count = post.comments.count()
-    post.save(update_fields=["comments_count"])
+    comments_count = post.comments.count()
 
     return Response(
         {
@@ -199,7 +240,7 @@ def community_add_comment(request, post_id):
             "author": comment.author.user.username,
             "text": comment.text,
             "created_at": comment.created_at.isoformat(),
-            "comments_count": post.comments_count,
+            "comments_count": comments_count,
         },
         status=status.HTTP_201_CREATED,
     )
@@ -213,17 +254,23 @@ def community_react(request, post_id):
     if error_resp:
         return error_resp
 
+    mode = request.headers.get("X-User-Mode")
+    if mode != "TRAVELER":
+        return Response({"detail": "Traveler access only"},
+                    status=status.HTTP_403_FORBIDDEN)
+
     reaction_type = request.data.get("reaction")
     if reaction_type not in ["LIKE", "DISLIKE"]:
-        return Response({"detail": "Invalid reaction."},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "Invalid reaction."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     post = get_object_or_404(CommunityPost, id=post_id)
 
     try:
         react_obj = CommunityReaction.objects.get(post=post, user=account)
         if react_obj.reaction == reaction_type:
-            # same reaction → toggle off
             react_obj.delete()
         else:
             react_obj.reaction = reaction_type
@@ -235,16 +282,14 @@ def community_react(request, post_id):
             reaction=reaction_type,
         )
 
-    # recompute counts
-    likes = CommunityReaction.objects.filter(post=post, reaction="LIKE").count()
-    dislikes = CommunityReaction.objects.filter(post=post, reaction="DISLIKE").count()
-    post.likes_count = likes
-    post.dislikes_count = dislikes
-    post.save(update_fields=["likes_count", "dislikes_count"])
+    likes = CommunityReaction.objects.filter(
+        post=post, reaction="LIKE"
+    ).count()
+    dislikes = CommunityReaction.objects.filter(
+        post=post, reaction="DISLIKE"
+    ).count()
 
     return Response(
         {"likes_count": likes, "dislikes_count": dislikes},
         status=status.HTTP_200_OK,
     )
-
-
