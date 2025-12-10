@@ -13,7 +13,135 @@ from accounts.models import UserAccount
 from travel.models import Area
 from .models import CommunityPost, CommunityComment, CommunityReaction
 
+from accounts.models import UserAccount, AdminProfile
 
+
+# Helper function to get Admin from token
+def get_admin_from_token(request):
+    token = request.headers.get("X-User-Token")
+    if not token:
+        return None, Response(
+            {"detail": "Not logged in."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    try:
+        user = User.objects.get(username=token)
+    except User.DoesNotExist:
+        return None, Response(
+            {"detail": "Invalid user token."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    try:
+        account = UserAccount.objects.get(user=user)
+    except UserAccount.DoesNotExist:
+        return None, Response(
+            {"detail": "User account not found."},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    if account.role != "ADMIN":
+        return None, Response(
+            {"detail": "Admin access only"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        admin_profile = account.admin_profile
+    except AdminProfile.DoesNotExist:
+        return None, Response(
+            {"detail": "Admin profile not found."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    if not admin_profile.area:
+        return None, Response(
+            {"detail": "Admin has no area assigned."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    return admin_profile, None
+
+# View to get posts for admin's area
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def admin_area_posts(request):
+    admin_profile, error_resp = get_admin_from_token(request)
+    if error_resp:
+        return error_resp
+
+    area = admin_profile.area
+
+    qs = CommunityPost.objects.filter(area=area).select_related(
+        "author__user", "area"
+    )
+
+    data = [
+        {
+            "id": post.id,
+            "title": post.title,
+            "category": post.category,
+            "category_label": post.get_category_display(),
+            "area": post.area.name if post.area else None,
+            "area_id": post.area.id if post.area else None,
+            "description": post.description,
+            "created_at": post.created_at.isoformat(),
+            "author": post.author.user.username,
+            "comments_count": post.comments.count(),
+            "likes_count": post.reactions.filter(reaction="LIKE").count(),
+            "dislikes_count": post.reactions.filter(reaction="DISLIKE").count(),
+        }
+        for post in qs
+    ]
+
+    return Response(data)
+
+# View to delete a post in admin's area
+@csrf_exempt
+@api_view(["DELETE"])
+@permission_classes([AllowAny])
+def admin_delete_post(request, post_id):
+    admin_profile, error_resp = get_admin_from_token(request)
+    if error_resp:
+        return error_resp
+
+    area = admin_profile.area
+
+    post = get_object_or_404(CommunityPost, id=post_id, area=area)
+    post.delete()
+
+    return Response(
+        {"detail": "Post deleted."},
+        status=status.HTTP_204_NO_CONTENT,
+    )
+
+# View to delete a comment in admin's area
+@csrf_exempt
+@api_view(["DELETE"])
+@permission_classes([AllowAny])
+def admin_delete_comment(request, comment_id):
+    admin_profile, error_resp = get_admin_from_token(request)
+    if error_resp:
+        return error_resp
+
+    area = admin_profile.area
+
+    comment = get_object_or_404(
+        CommunityComment,
+        id=comment_id,
+        post__area=area,
+    )
+    comment.delete()
+
+    return Response(
+        {"detail": "Comment deleted."},
+        status=status.HTTP_204_NO_CONTENT,
+    )
+
+
+# Helper function to get UserAccount from token
 def get_account_from_token(request):
     token = request.headers.get("X-User-Token")
     if not token:
@@ -40,7 +168,7 @@ def get_account_from_token(request):
 
     return account, None
 
-
+# View to handle community posts
 @csrf_exempt
 @api_view(["GET", "POST"])
 @permission_classes([AllowAny])

@@ -1,11 +1,11 @@
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.db import IntegrityError
 from rest_framework import serializers
 
 from .models import UserAccount, TravelerProfile, MerchantProfile, AdminProfile
-
-
 from travel.models import Area
+
 
 class SignupSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -45,14 +45,22 @@ class SignupSerializer(serializers.Serializer):
 
         password = validated_data.pop("password")
 
-        # Convert IDs to Area objects
+        # Safe Area lookups (no crashes)
         area_obj = None
-        if area_id:
-            area_obj = Area.objects.get(id=area_id)
+        if area_id is not None:
+            try:
+                area_obj = Area.objects.get(id=area_id)
+            except Area.DoesNotExist:
+                raise serializers.ValidationError({"area_id": "Invalid area_id."})
 
         business_area_obj = None
-        if business_area_id:
-            business_area_obj = Area.objects.get(id=business_area_id)
+        if business_area_id is not None:
+            try:
+                business_area_obj = Area.objects.get(id=business_area_id)
+            except Area.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"business_area_id": "Invalid business_area_id."}
+                )
 
         # Create user
         user = User.objects.create_user(
@@ -79,14 +87,19 @@ class SignupSerializer(serializers.Serializer):
                 description=description,
             )
         elif role == "ADMIN":
-            AdminProfile.objects.create(
-                user_account=user_account,
-                area=area_obj,
-                years_in_area=years_in_area,
-            )
+            try:
+                AdminProfile.objects.create(
+                    user_account=user_account,
+                    area=area_obj,
+                    years_in_area=years_in_area,
+                )
+            except IntegrityError:
+                # this area already has an admin
+                raise serializers.ValidationError(
+                    {"area_id": "This area already has an admin."}
+                )
 
         return user_account
-
 
 
 class LoginSerializer(serializers.Serializer):

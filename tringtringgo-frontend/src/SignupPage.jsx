@@ -105,8 +105,10 @@ function SignupPage() {
         setErrors(errData);
       }
     } catch (err) {
-      setErrors({ detail: "Network error. Please try again." });
-    } finally {
+  console.error("Signup fetch failed:", err);
+  setErrors({ detail: err.message || "Network error. Please try again." });
+}
+ finally {
       setLoading(false);
     }
   }

@@ -19,6 +19,8 @@ from django.contrib.auth import logout
 from travel.models import Area
 from django.utils.dateparse import parse_time
 from .models import MerchantVerificationRequest
+from accounts.models import UserAccount, TravelerProfile, MerchantProfile, AdminProfile
+from django.contrib.auth.models import User
 
 
 
@@ -439,10 +441,60 @@ def merchant_request_verification(request):
 
 
 #Admin dashboard view
+
 @csrf_exempt
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def admin_dashboard(request):
+    token = request.headers.get("X-User-Token")
+    if not token:
+        return Response({"detail": "Not logged in."},
+                        status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        user = User.objects.get(username=token)
+    except User.DoesNotExist:
+        return Response({"detail": "Invalid user token."},
+                        status=status.HTTP_401_UNAUTHORIZED)
+
+    try:
+        account = UserAccount.objects.get(user=user)
+    except UserAccount.DoesNotExist:
+        return Response({"detail": "User account not found."},
+                        status=status.HTTP_401_UNAUTHORIZED)
+
+    if account.role != "ADMIN":
+        return Response({"detail": "Admin access only"},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        admin_profile = account.admin_profile
+    except AdminProfile.DoesNotExist:
+        return Response({"detail": "Admin profile not found."},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    area = admin_profile.area
+
+    merchants_qs = MerchantProfile.objects.filter(business_area=area)
+    total_merchants = merchants_qs.count()
+    verified_merchants = merchants_qs.filter(is_verified=True).count()
+    unverified_merchants = merchants_qs.filter(is_verified=False).count()
+
+    data = {
+        "role": account.role,
+        "admin": {
+            "username": user.username,
+            "area": area.name if area else "No area assigned",
+        },
+        "stats": {
+            "total_merchants_in_area": total_merchants,
+            "verified_merchants_in_area": verified_merchants,
+            "unverified_merchants_in_area": unverified_merchants,
+        },
+        "message": f"Admin for {area.name if area else 'no area'}",
+    }
+    return Response(data)
+
     token = request.headers.get("X-User-Token")
     if not token:
         return Response({"detail": "Not logged in."}, status=status.HTTP_401_UNAUTHORIZED)
