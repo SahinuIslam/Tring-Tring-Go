@@ -62,17 +62,21 @@ function TopBar() {
 function AdminDashboard() {
   const [data, setData] = useState(null);
   const [requests, setRequests] = useState([]);
+  const [communityPosts, setCommunityPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reqLoading, setReqLoading] = useState(true);
+  const [communityLoading, setCommunityLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [actingId, setActingId] = useState(null);
+  const [communityError, setCommunityError] = useState("");
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
         setError("");
+        setCommunityError("");
 
         const stored = localStorage.getItem("ttg_user");
         const parsed = stored ? JSON.parse(stored) : null;
@@ -114,12 +118,51 @@ function AdminDashboard() {
         );
         const reqBody = await reqResp.json().catch(() => []);
         if (reqResp.ok) setRequests(reqBody);
+
+        // Community posts in admin area (with comments)
+        setCommunityLoading(true);
+        const commResp = await fetch(
+          "http://127.0.0.1:8000/api/community/admin/posts/",
+          {
+            method: "GET",
+            headers: {
+              "X-User-Token": token,
+            },
+          }
+        );
+        const commBody = await commResp.json().catch(() => []);
+        if (!commResp.ok) {
+          setCommunityError(
+            commBody.detail || "Failed to load community posts"
+          );
+        } else {
+          // commBody is list of posts without comments;
+          // we’ll fetch comments per post below (simple version)
+          const postsWithComments = await Promise.all(
+            commBody.map(async (p) => {
+              try {
+                const detailResp = await fetch(
+                  `http://127.0.0.1:8000/api/community/posts/${p.id}/`
+                );
+                const detailBody = await detailResp
+                  .json()
+                  .catch(() => ({ ...p, comments: [] }));
+                if (!detailResp.ok) return { ...p, comments: [] };
+                return { ...p, comments: detailBody.comments || [] };
+              } catch {
+                return { ...p, comments: [] };
+              }
+            })
+          );
+          setCommunityPosts(postsWithComments);
+        }
       } catch (e) {
         console.error(e);
         setError(e.message);
       } finally {
         setLoading(false);
         setReqLoading(false);
+        setCommunityLoading(false);
       }
     }
     load();
@@ -156,7 +199,6 @@ function AdminDashboard() {
         throw new Error(body.detail || "Failed to update request");
       }
 
-      // Update local list
       setRequests((prev) =>
         prev.map((r) =>
           r.id === requestId ? { ...r, status: body.status } : r
@@ -168,6 +210,66 @@ function AdminDashboard() {
       setError(e.message);
     } finally {
       setActingId(null);
+    }
+  }
+
+  async function handleDeletePost(postId) {
+    if (!window.confirm("Delete this post and all its comments?")) return;
+    try {
+      const stored = localStorage.getItem("ttg_user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      const token = parsed?.token || parsed?.username || "";
+      if (!token) throw new Error("Not logged in.");
+
+      const resp = await fetch(
+        `http://127.0.0.1:8000/api/community/admin/posts/${postId}/`,
+        {
+          method: "DELETE",
+          headers: { "X-User-Token": token },
+        }
+      );
+      if (!resp.ok && resp.status !== 204) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to delete post");
+      }
+      setCommunityPosts((prev) => prev.filter((p) => p.id !== postId));
+    } catch (e) {
+      console.error(e);
+      setCommunityError(e.message);
+    }
+  }
+
+  async function handleDeleteComment(commentId, postId) {
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      const stored = localStorage.getItem("ttg_user");
+      const parsed = stored ? JSON.parse(stored) : null;
+      const token = parsed?.token || parsed?.username || "";
+      if (!token) throw new Error("Not logged in.");
+
+      const resp = await fetch(
+        `http://127.0.0.1:8000/api/community/admin/comments/${commentId}/`,
+        {
+          method: "DELETE",
+          headers: { "X-User-Token": token },
+        }
+      );
+      if (!resp.ok && resp.status !== 204) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.detail || "Failed to delete comment");
+      }
+
+      // remove comment locally
+      setCommunityPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId
+            ? { ...p, comments: p.comments.filter((c) => c.id !== commentId) }
+            : p
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      setCommunityError(e.message);
     }
   }
 
@@ -321,7 +423,7 @@ function AdminDashboard() {
         </div>
 
         {/* Verification requests */}
-        <section>
+        <section style={{ marginBottom: "2rem" }}>
           <h3 className="text-xl font-semibold mb-2">
             Merchant verification requests
           </h3>
@@ -376,9 +478,7 @@ function AdminDashboard() {
                               disabled={actingId === r.id}
                               onClick={() => handleAction(r.id, "APPROVE")}
                             >
-                              {actingId === r.id && "APPROVE"
-                                ? "Working..."
-                                : "Approve"}
+                              {actingId === r.id ? "Working..." : "Approve"}
                             </button>
                             <button
                               type="button"
@@ -391,7 +491,12 @@ function AdminDashboard() {
                             </button>
                           </div>
                         ) : (
-                          <span style={{ fontSize: "0.75rem", color: "#6b7280" }}>
+                          <span
+                            style={{
+                              fontSize: "0.75rem",
+                              color: "#6b7280",
+                            }}
+                          >
                             No actions
                           </span>
                         )}
@@ -400,6 +505,140 @@ function AdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </section>
+
+        {/* Community posts in admin area with comments */}
+        <section>
+          <h3 className="text-xl font-semibold mb-2">
+            Community posts in your area
+          </h3>
+          {communityError && (
+            <p style={{ color: "#b91c1c", fontSize: "0.85rem" }}>
+              {communityError}
+            </p>
+          )}
+          {communityLoading ? (
+            <p>Loading community posts...</p>
+          ) : communityPosts.length === 0 ? (
+            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+              No community posts for your area yet.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {communityPosts.map((p) => (
+                <div
+                  key={p.id}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "0.5rem",
+                    padding: "0.75rem",
+                    backgroundColor: "#f9fafb",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{p.title}</div>
+                      <div
+                        style={{
+                          fontSize: "0.8rem",
+                          color: "#6b7280",
+                        }}
+                      >
+                        {p.category_label} · by {p.author} ·{" "}
+                        {new Date(p.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      style={{ backgroundColor: "#ef4444" }}
+                      onClick={() => handleDeletePost(p.id)}
+                    >
+                      Delete post
+                    </button>
+                  </div>
+
+                  <div style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>
+                    {p.description}
+                  </div>
+
+                  <div style={{ fontSize: "0.8rem", color: "#4b5563" }}>
+                    {p.comments?.length || 0} comments · {p.likes_count} likes ·{" "}
+                    {p.dislikes_count} dislikes
+                  </div>
+
+                  {p.comments && p.comments.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: "0.5rem",
+                        borderTop: "1px solid #e5e7eb",
+                        paddingTop: "0.5rem",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          marginBottom: "0.25rem",
+                        }}
+                      >
+                        Comments
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                        {p.comments.map((c) => (
+                          <div
+                            key={c.id}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              fontSize: "0.8rem",
+                              backgroundColor: "#ffffff",
+                              borderRadius: "0.25rem",
+                              padding: "0.25rem 0.5rem",
+                              border: "1px solid #e5e7eb",
+                            }}
+                          >
+                            <div>
+                              <span style={{ fontWeight: 600 }}>{c.author}</span>
+                              {": "}
+                              <span>{c.text}</span>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "#9ca3af",
+                                }}
+                              >
+                                {new Date(c.created_at).toLocaleString()}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="primary-btn"
+                              style={{
+                                backgroundColor: "#ef4444",
+                                padding: "0.2rem 0.5rem",
+                              }}
+                              onClick={() => handleDeleteComment(c.id, p.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </section>
