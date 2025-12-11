@@ -1,14 +1,16 @@
 from django.contrib.auth.models import User
+from django.views.decorators.csrf import csrf_exempt
+
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework import status
-from django.views.decorators.csrf import csrf_exempt
 
-from accounts.models import UserAccount, TravelerProfile
-from .serializers import SavedPlaceSerializer, PlaceSerializer, ReviewSerializer
-from .models import Place, SavedPlace, Review, Area
+from accounts.models import UserAccount
 from accounts.views import get_or_create_traveler_profile
+from .models import Place, SavedPlace, Review, Area
+from .serializers import SavedPlaceSerializer, PlaceSerializer, ReviewSerializer
+
 
 def _get_traveler_from_token(request):
     token = request.headers.get("X-User-Token")
@@ -31,12 +33,11 @@ def _get_traveler_from_token(request):
         defaults={"role": "TRAVELER"},
     )
 
-    # Key change: do NOT restrict by role here
     traveler_profile = get_or_create_traveler_profile(account)
-
     return account, None
 
 
+# ---------- Saved places ----------
 
 @csrf_exempt
 @api_view(["GET"])
@@ -46,8 +47,10 @@ def list_saved_places(request):
     if error:
         return error
 
-    saved_qs = SavedPlace.objects.filter(traveler=traveler).select_related("place").order_by(
-        "-saved_at"
+    saved_qs = (
+        SavedPlace.objects.filter(traveler=traveler)
+        .select_related("place")
+        .order_by("-saved_at")
     )
     serializer = SavedPlaceSerializer(saved_qs, many=True)
     return Response(serializer.data)
@@ -108,6 +111,9 @@ def remove_saved_place(request, pk):
     saved.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+
+# ---------- Reviews ----------
+
 @csrf_exempt
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -130,7 +136,7 @@ def create_review(request):
         return error
 
     data = request.data.copy()
-    data["traveler"] = traveler.id  # not exposed in serializer fields but for clarity
+    data["traveler"] = traveler.id
 
     place_id = data.get("place")
     if not place_id:
@@ -139,7 +145,6 @@ def create_review(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Ensure place exists
     try:
         place = Place.objects.get(id=place_id)
     except Place.DoesNotExist:
@@ -159,6 +164,10 @@ def create_review(request):
         title=serializer.validated_data.get("title", ""),
         text=serializer.validated_data.get("text", ""),
     )
+
+    # update rating stats
+    place.recompute_rating()
+
     out = ReviewSerializer(review)
     return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -179,15 +188,11 @@ def delete_review(request, pk):
             status=status.HTTP_404_NOT_FOUND,
         )
 
+    place = review.place
     review.delete()
-    return Response(status=status.HTTP_204_NO_CONTENT)
+    place.recompute_rating()
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def list_places(request):
-    qs = Place.objects.all().order_by("name")
-    serializer = PlaceSerializer(qs, many=True)
-    return Response(serializer.data)
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @csrf_exempt
@@ -206,23 +211,21 @@ def update_review(request, pk):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    # Only allow updating rating, title, text
     data = request.data
     rating = data.get("rating", review.rating)
     title = data.get("title", review.title)
     text = data.get("text", review.text)
 
-    # Basic validation for rating
     try:
-        rating = int(rating)
+        rating = float(rating)
     except (TypeError, ValueError):
         return Response(
-            {"detail": "rating must be an integer between 1 and 5."},
+            {"detail": "rate between 0.0 and 5.0."},
             status=status.HTTP_400_BAD_REQUEST,
         )
-    if rating < 1 or rating > 5:
+    if rating < 1.0 or rating > 5.0:
         return Response(
-            {"detail": "rating must be between 1 and 5."},
+            {"detail": "rate between 0.0 and 5.0."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -231,8 +234,21 @@ def update_review(request, pk):
     review.text = text
     review.save()
 
+    review.place.recompute_rating()
+
     serializer = ReviewSerializer(review)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ---------- Places / Areas ----------
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def list_places(request):
+    qs = Place.objects.all().order_by("name")
+    serializer = PlaceSerializer(qs, many=True)
+    return Response(serializer.data)
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
