@@ -1,6 +1,6 @@
 from django.db import models
-from django.contrib.auth.models import User
 from accounts.models import MerchantProfile
+
 
 # Area Model
 class Area(models.Model):
@@ -9,6 +9,7 @@ class Area(models.Model):
 
     def __str__(self):
         return self.name
+
 
 # Place Model
 class Place(models.Model):
@@ -48,6 +49,7 @@ class Place(models.Model):
         null=True,
         blank=True,
     )
+    address = models.CharField(max_length=255, blank=True, default="")
 
     # high-level type used for Explore filters
     category = models.CharField(
@@ -55,11 +57,17 @@ class Place(models.Model):
         choices=CATEGORY_CHOICES,
         default="OTHER",
     )
+     # mark as popular for Explore
+    is_popular = models.BooleanField(default=False)
+    
+    opening_time = models.TimeField(null=True, blank=True)
+    closing_time = models.TimeField(null=True, blank=True)
 
     image_url = models.URLField(blank=True)
 
     # stored copy of average rating for fast queries (computed from Review)
     average_rating = models.FloatField(default=0.0)
+    review_count = models.PositiveIntegerField(default=0)
 
     # OPTIONAL: which merchant owns this place (restaurant, cafe, shop, etc.)
     owner = models.ForeignKey(
@@ -74,10 +82,24 @@ class Place(models.Model):
         area_name = self.area.name if self.area else "No area"
         return f"{self.name} ({area_name})"
 
+    def recompute_rating(self):
+        """
+        Recalculate average_rating and review_count from related reviews.
+        Call this after creating/updating/deleting a Review.
+        """
+        agg = self.reviews.aggregate(
+            avg=models.Avg("rating"),
+            cnt=models.Count("id"),
+        )
+        self.average_rating = agg["avg"] or 0.0
+        self.review_count = agg["cnt"] or 0
+        self.save(update_fields=["average_rating", "review_count"])
+
+
 # Saved Place Model
 class SavedPlace(models.Model):
     traveler = models.ForeignKey(
-        "accounts.UserAccount",     
+        "accounts.UserAccount",
         on_delete=models.CASCADE,
         related_name="saved_places",
         limit_choices_to={"role": "TRAVELER"},
@@ -91,12 +113,13 @@ class SavedPlace(models.Model):
     def __str__(self):
         return f"{self.traveler.user.username} saved {self.place.name}"
 
+
 # Review Model
 class Review(models.Model):
     RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
 
     traveler = models.ForeignKey(
-        "accounts.UserAccount",     
+        "accounts.UserAccount",
         on_delete=models.CASCADE,
         related_name="reviews",
         limit_choices_to={"role": "TRAVELER"},
@@ -116,3 +139,5 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.traveler.user.username} → {self.place.name} ({self.rating})"
+
+
