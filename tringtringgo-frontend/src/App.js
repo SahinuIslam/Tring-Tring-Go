@@ -11,8 +11,14 @@ import TravelerDashboard from "./pages/TravelerDashboard";
 import MerchantDashboard from "./pages/MerchantDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 
+import SavedPlacesPage from "./SavedPlacesPage";
+
+
+
 // import community feed
 import CommunityFeed from "./CommunityFeed";
+//import explore 
+import ExplorePage from "./ExplorePage";
 
 function App() {
   return (
@@ -24,10 +30,13 @@ function App() {
 
         {/* dashboards */}
         <Route path="/traveler" element={<TravelerDashboard />} />
+        <Route path="/saved-places" element={<SavedPlacesPage />} />
         <Route path="/merchant" element={<MerchantDashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
-
-        <Route path="/community" element={<CommunityFeed />} />
+        <Route path="/explore" element={<ExplorePage />} />   
+        <Route path="/community" element={<CommunityFeed />} 
+    
+        />
 
         {/* default */}
         <Route path="/" element={<Navigate to="/login" replace />} />
