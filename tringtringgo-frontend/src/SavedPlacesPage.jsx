@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+/*import React, { useEffect, useState } from "react";
 import { getUserToken } from "./auth"; // adjust path
 
 function SavedPlacesPage() {
@@ -34,3 +34,4 @@ function SavedPlacesPage() {
 }
 
 export default SavedPlacesPage;
+*/

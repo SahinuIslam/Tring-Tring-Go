@@ -1,3 +1,5 @@
+# travel/views.py
+
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 
@@ -6,10 +8,15 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from accounts.models import UserAccount
+from accounts.models import UserAccount, MerchantProfile
 from accounts.views import get_or_create_traveler_profile
 from .models import Place, SavedPlace, Review, Area
-from .serializers import SavedPlaceSerializer, PlaceSerializer, ReviewSerializer
+from .serializers import (
+    SavedPlaceSerializer,
+    PlaceSerializer,
+    ReviewSerializer,
+    MerchantProfileSerializer,  # you must define this in travel/serializers.py
+)
 
 
 def _get_traveler_from_token(request):
@@ -38,6 +45,7 @@ def _get_traveler_from_token(request):
 
 
 # ---------- Saved places ----------
+
 
 @csrf_exempt
 @api_view(["GET"])
@@ -113,6 +121,7 @@ def remove_saved_place(request, pk):
 
 
 # ---------- Reviews ----------
+
 
 @csrf_exempt
 @api_view(["GET"])
@@ -242,6 +251,7 @@ def update_review(request, pk):
 
 # ---------- Places / Areas ----------
 
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def list_places(request):
@@ -256,3 +266,23 @@ def list_areas(request):
     qs = Area.objects.all().order_by("name")
     data = [{"id": a.id, "name": a.name} for a in qs]
     return Response(data)
+
+
+# ---------- Explore merchants by area ----------
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def explore_merchants(request):
+    """
+    List merchants for Explore page.
+    Optional query param: ?area_id=ID to filter by Area.
+    """
+    area_id = request.GET.get("area_id")
+    qs = MerchantProfile.objects.select_related("business_area", "user_account__user")
+
+    if area_id:
+        qs = qs.filter(business_area_id=area_id)
+
+    serializer = MerchantProfileSerializer(qs, many=True)
+    return Response(serializer.data)

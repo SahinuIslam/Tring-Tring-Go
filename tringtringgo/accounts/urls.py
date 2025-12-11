@@ -1,4 +1,5 @@
 from django.urls import path
+from .views import UserSearchView
 from .views import (
     SignupAPIView,
     GoogleLoginAPIView,
@@ -32,4 +33,5 @@ urlpatterns = [
     path("dashboard/admin/", admin_dashboard, name="admin-dashboard"),
     path("dashboard/admin/verification-requests/", admin_verification_requests, name="admin-verification-requests"),
     path("dashboard/admin/verification-requests/<int:request_id>/", admin_handle_verification, name="admin-handle-verification"),
+    path("users/search/", UserSearchView.as_view(), name="user-search"),
 ]

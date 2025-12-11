@@ -1,5 +1,8 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 
 # User Account Model
 class UserAccount(models.Model):
@@ -9,8 +12,12 @@ class UserAccount(models.Model):
         ("ADMIN", "Admin"),
     ]
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="account")
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="account",
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="TRAVELER")
 
     def __str__(self):
         return f"{self.user.username} ({self.role})"
@@ -31,8 +38,10 @@ class TravelerProfile(models.Model):
         related_name="traveler_profiles",
     )
     years_in_area = models.PositiveIntegerField(default=0)
+
     def __str__(self):
         return f"TravelerProfile for {self.user_account.user.username}"
+
 
 # Merchant Profile Model
 class MerchantProfile(models.Model):
@@ -43,13 +52,16 @@ class MerchantProfile(models.Model):
     )
 
     shop_name = models.CharField(max_length=100)
+
+    # business area of the merchant – points to travel.Area
     business_area = models.ForeignKey(
-     "travel.Area",  
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    related_name="merchant_profiles",
-)
+        "travel.Area",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="merchant_profiles",
+    )
+
     business_type = models.CharField(max_length=100, blank=True)
     address = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=30, blank=True)
@@ -72,6 +84,7 @@ class MerchantProfile(models.Model):
         status = "Verified" if self.is_verified else "Unverified"
         return f"{self.shop_name} ({status}) - {self.user_account.user.username}"
 
+
 # Admin Profile Model
 class AdminProfile(models.Model):
     user_account = models.OneToOneField(
@@ -79,26 +92,33 @@ class AdminProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="admin_profile",
     )
-    area = models.OneToOneField( # one admin per Area.
-         "travel.Area",  
+    # one admin per Area
+    area = models.OneToOneField(
+        "travel.Area",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="admin_profile", 
+        related_name="admin_profile",
     )
     years_in_area = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return f"AdminProfile({self.user_account.user.username})"
 
+
 # Login Log Model
 class LoginLog(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="login_logs")
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="login_logs",
+    )
     login_time = models.DateTimeField(auto_now_add=True)
     method = models.CharField(max_length=20)  # "PASSWORD" or "GOOGLE"
 
     def __str__(self):
         return f"{self.user.username} - {self.method} - {self.login_time}"
+
 
 # Merchant Verification Request Model
 class MerchantVerificationRequest(models.Model):
@@ -113,7 +133,11 @@ class MerchantVerificationRequest(models.Model):
         on_delete=models.CASCADE,
         related_name="verification_request",
     )
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default="PENDING",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     reviewed_at = models.DateTimeField(null=True, blank=True)
     reviewed_by = models.ForeignKey(
@@ -128,3 +152,4 @@ class MerchantVerificationRequest(models.Model):
 
     def __str__(self):
         return f"{self.merchant.shop_name} - {self.status}"
+

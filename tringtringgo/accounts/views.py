@@ -1,3 +1,5 @@
+from rest_framework import generics
+from .serializers import UserSearchSerializer
 import profile
 from httpx import request
 from rest_framework.views import APIView
@@ -22,7 +24,22 @@ from django.utils.dateparse import parse_time
 from .models import MerchantVerificationRequest
 from accounts.models import UserAccount, TravelerProfile, MerchantProfile, AdminProfile
 from django.contrib.auth.models import User
+from rest_framework import generics, permissions
+from django.contrib.auth import get_user_model
+from .serializers import UserSearchSerializer
 
+User = get_user_model()
+
+class UserSearchView(generics.ListAPIView):
+    serializer_class = UserSearchSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        q = self.request.query_params.get("q", "").strip()
+        qs = User.objects.all()
+        if q:
+            qs = qs.filter(username__icontains=q) | qs.filter(email__icontains=q)
+        return qs[:20]
 
 
 
@@ -851,6 +868,21 @@ def get_or_create_traveler_profile(account):
         defaults={"years_in_area": 0},
     )
     return profile
+
+class UserSearchView(generics.ListAPIView):
+    serializer_class = UserSearchSerializer
+
+    def get_queryset(self):
+        # Optional: require X-User-Token
+        token = self.request.headers.get("X-User-Token")
+        if not token:
+            return User.objects.none()
+
+        q = self.request.query_params.get("q", "").strip()
+        qs = User.objects.all()
+        if q:
+            qs = qs.filter(username__icontains=q) | qs.filter(email__icontains=q)
+        return qs[:20]
 
 
 

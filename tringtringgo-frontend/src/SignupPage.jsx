@@ -1,9 +1,12 @@
-import { Link } from "react-router-dom";
+// src/SignupPage.jsx
 import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { auth, googleProvider } from "./firebase";
 import { signInWithPopup } from "firebase/auth";
 
 function SignupPage() {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     username: "",
     email: "",
@@ -87,7 +90,7 @@ function SignupPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setMessage(data.message || "Signup successful!");
+        setMessage(data.message || "Signup successful! Please Login now.");
         setFormData({
           username: "",
           email: "",
@@ -100,15 +103,19 @@ function SignupPage() {
           years_in_business: "",
           description: "",
         });
+
+        // redirect to login after successful signup
+        navigate("/login");
       } else {
         const errData = await response.json();
         setErrors(errData);
       }
     } catch (err) {
-  console.error("Signup fetch failed:", err);
-  setErrors({ detail: err.message || "Network error. Please try again." });
-}
- finally {
+      console.error("Signup fetch failed:", err);
+      setErrors({
+        detail: err.message || "Network error. Please try again.",
+      });
+    } finally {
       setLoading(false);
     }
   }
@@ -318,3 +325,4 @@ function SignupPage() {
 }
 
 export default SignupPage;
+        

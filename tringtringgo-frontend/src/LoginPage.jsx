@@ -24,7 +24,13 @@ function LoginPage() {
       token: data.token || data.username || data.email || "",
     };
 
+    // original storage
     localStorage.setItem("ttg_user", JSON.stringify(ttgUser));
+
+    // NEW: simple token for chat (username)
+    if (ttgUser.username) {
+      localStorage.setItem("userToken", ttgUser.username);
+    }
 
     if (ttgUser.mode === "TRAVELER") navigate("/traveler");
     else if (ttgUser.mode === "MERCHANT") navigate("/merchant");

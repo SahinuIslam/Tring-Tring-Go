@@ -2,7 +2,6 @@ from django.db import models
 from accounts.models import MerchantProfile
 
 
-# Area Model
 class Area(models.Model):
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
@@ -11,7 +10,6 @@ class Area(models.Model):
         return self.name
 
 
-# Place Model
 class Place(models.Model):
     CATEGORY_CHOICES = [
         ("PARK", "Park"),
@@ -57,9 +55,10 @@ class Place(models.Model):
         choices=CATEGORY_CHOICES,
         default="OTHER",
     )
-     # mark as popular for Explore
+
+    # mark as popular for Explore
     is_popular = models.BooleanField(default=False)
-    
+
     opening_time = models.TimeField(null=True, blank=True)
     closing_time = models.TimeField(null=True, blank=True)
 
@@ -83,10 +82,6 @@ class Place(models.Model):
         return f"{self.name} ({area_name})"
 
     def recompute_rating(self):
-        """
-        Recalculate average_rating and review_count from related reviews.
-        Call this after creating/updating/deleting a Review.
-        """
         agg = self.reviews.aggregate(
             avg=models.Avg("rating"),
             cnt=models.Count("id"),
@@ -96,7 +91,6 @@ class Place(models.Model):
         self.save(update_fields=["average_rating", "review_count"])
 
 
-# Saved Place Model
 class SavedPlace(models.Model):
     traveler = models.ForeignKey(
         "accounts.UserAccount",
@@ -114,7 +108,6 @@ class SavedPlace(models.Model):
         return f"{self.traveler.user.username} saved {self.place.name}"
 
 
-# Review Model
 class Review(models.Model):
     RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
 
@@ -139,5 +132,3 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.traveler.user.username} → {self.place.name} ({self.rating})"
-
-
