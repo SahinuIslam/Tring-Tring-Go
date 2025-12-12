@@ -83,22 +83,45 @@ export function TopBar() {
         }}
       >
         <nav style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
-          <a href="/home" style={linkStyle("home")}>
-            Home
-          </a>
-          <a href="/explore" style={linkStyle("explore")}>
-            Explore
-          </a>
-          <a href="/community" style={linkStyle("community")}>
-            Community
-          </a>
-          <a href="/services" style={linkStyle("services")}>
-            Services
-          </a>
-          <a href={dashboardHref} style={linkStyle("dashboard")}>
-            Dashboard
-          </a>
-        </nav>
+  <a href="/home" style={linkStyle("home")}>
+    Home
+  </a>
+  <a href="/explore" style={linkStyle("explore")}>
+    Explore
+  </a>
+  <a href="/community" style={linkStyle("community")}>
+    Community
+  </a>
+  <a href="/services" style={linkStyle("services")}>
+    Services
+  </a>
+  <a href={dashboardHref} style={linkStyle("dashboard")}>
+    Dashboard
+  </a>
+
+  {/* New Chat item – uses the floating ChatWidget already in App.js */}
+  <button
+    type="button"
+    onClick={() =>
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      })
+    }
+    style={{
+      border: "none",
+      background: "transparent",
+      fontSize: "0.95rem",
+      color: "#2563eb",
+      fontWeight: 600,
+      cursor: "pointer",
+      padding: 0,
+    }}
+  >
+    Chat
+  </button>
+</nav>
+
 
         <button
           type="button"
