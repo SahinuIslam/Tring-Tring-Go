@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'accounts', # the app we just created
     'travel',
     'community', 
+    'chat',
 ]
 
 MIDDLEWARE = [

@@ -1,156 +1,26 @@
-// src/pages/MerchantDashboard.jsx
 import React, { useEffect, useState } from "react";
-
-/* ---------- TopBar ---------- */
-
-function TopBar() {
-  async function handleLogout() {
-    try {
-      await fetch("http://127.0.0.1:8000/api/accounts/logout/", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (e) {
-      console.error("Logout API error (ignored):", e);
-    }
-    localStorage.removeItem("ttg_user");
-    window.location.href = "/login";
-  }
-
-  const path = window.location.pathname;
-  const stored = localStorage.getItem("ttg_user");
-  const parsed = stored ? JSON.parse(stored) : null;
-  const mode = parsed?.mode || parsed?.role || "TRAVELER";
-
-  const dashboardHref =
-    mode === "MERCHANT"
-      ? "/merchant"
-      : mode === "ADMIN"
-      ? "/admin"
-      : "/traveler";
-
-  const isActive = (name) => {
-    if (name === "home") return path === "/" || path === "/home";
-    if (name === "explore") return path.startsWith("/explore");
-    if (name === "community") return path.startsWith("/community");
-    if (name === "services") return path.startsWith("/services");
-    if (name === "dashboard")
-      return (
-        path.startsWith("/traveler") ||
-        path.startsWith("/merchant") ||
-        path.startsWith("/admin") ||
-        path.startsWith("/dashboard")
-      );
-    return false;
-  };
-
-  const linkStyle = (name) => ({
-    textDecoration: "none",
-    fontSize: "0.95rem",
-    color: isActive(name) ? "#1f2937" : "#4b5563",
-    fontWeight: isActive(name) ? 700 : 500,
-    borderBottom: isActive(name)
-      ? "2px solid #1f2937"
-      : "2px solid transparent",
-    paddingBottom: "0.1rem",
-  });
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: "1rem",
-        borderBottom: "1px solid #e5e7eb",
-        paddingBottom: "1rem",
-        paddingTop: "0.5rem",
-        paddingInline: "1rem",
-        flexWrap: "wrap",
-        gap: "0.75rem",
-      }}
-    >
-      <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1f2937" }}>
-        TringTringGo
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "1.25rem",
-          fontSize: "0.95rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <nav style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
-          <a href="/home" style={linkStyle("home")}>
-            Home
-          </a>
-          <a href="/explore" style={linkStyle("explore")}>
-            Explore
-          </a>
-          <a href="/community" style={linkStyle("community")}>
-            Community
-          </a>
-          <a href="/services" style={linkStyle("services")}>
-            Services
-          </a>
-          <a href={dashboardHref} style={linkStyle("dashboard")}>
-            Dashboard
-          </a>
-        </nav>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          style={{
-            border: "none",
-            borderRadius: "999px",
-            padding: "0.4rem 0.9rem",
-            background: "#ef4444",
-            color: "white",
-            fontSize: "0.85rem",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Log out
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- helpers ---------- */
 
 function formatTimeToAMPM(timeStr) {
   if (!timeStr) return "Not set";
-  const [h, m] = timeStr.split(":").map(Number);
-  const hour12 = ((h + 11) % 12) + 1;
+  const [hour, minute] = timeStr.split(":");
+  let h = parseInt(hour, 10);
   const ampm = h >= 12 ? "PM" : "AM";
-  return `${hour12}:${m.toString().padStart(2, "0")} ${ampm}`;
+  h = h % 12 || 12;
+  return `${h}:${minute} ${ampm}`;
 }
 
-/* ---------- MerchantDashboard ---------- */
-
 function MerchantDashboard() {
-  // read user only once
-  const storedUser = localStorage.getItem("ttg_user");
-  const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-  const realRole = parsedUser?.role || "TRAVELER";
-  const mode = parsedUser?.mode || realRole;
-  const token = parsedUser?.token || parsedUser?.username || "";
-  const isLoggedIn = !!parsedUser;
-
-  const [data, setData] = useState(null);
-  const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [areasLoading, setAreasLoading] = useState(true);
   const [error, setError] = useState("");
+  const [apiMessage, setApiMessage] = useState("");
+
+  const [role, setRole] = useState("");
+  const [mode, setMode] = useState("");
+  const [profile, setProfile] = useState(null);
   const [message, setMessage] = useState("");
 
-  const [editForm, setEditForm] = useState({
+  const [editMode, setEditMode] = useState(false);
+  const [editData, setEditData] = useState({
     shop_name: "",
     business_area_id: "",
     business_type: "",
@@ -161,103 +31,92 @@ function MerchantDashboard() {
     years_in_business: "",
     description: "",
   });
-  const [saving, setSaving] = useState(false);
-  const [showEdit, setShowEdit] = useState(false);
-  const [requesting, setRequesting] = useState(false);
+
+  const [areas, setAreas] = useState([]);
+  const [verifLoading, setVerifLoading] = useState(false);
+  const [verifMessage, setVerifMessage] = useState("");
+  const [verifError, setVerifError] = useState("");
+
+  const stored = localStorage.getItem("ttg_user");
+  const parsed = stored ? JSON.parse(stored) : null;
+  const isLoggedIn = !!parsed;
+  const token = parsed?.token || parsed?.username || "";
+  const userMode = parsed?.mode || parsed?.role || "TRAVELER";
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    if (!isLoggedIn || !token) {
+      setError("Not logged in.");
       setLoading(false);
-      setError("You must log in as a merchant to view this dashboard.");
-      return;
-    }
-    if (realRole !== "MERCHANT") {
-      setLoading(false);
-      setError("Merchant dashboard is only for merchant accounts.");
       return;
     }
 
-    let cancelled = false;
-
-    async function loadData() {
+    async function loadAll() {
       try {
-        setLoading(true);
-        setError("");
-        setMessage("");
+        const headers = { "X-User-Token": token };
 
         const resp = await fetch(
           "http://127.0.0.1:8000/api/accounts/dashboard/merchant/",
-          {
-            method: "GET",
-            headers: { "X-User-Token": token },
-          }
+          { headers }
         );
-        const body = await resp.json().catch(() => ({}));
+        const data = await resp.json();
+
         if (!resp.ok) {
-          throw new Error(body.detail || "Failed to load merchant dashboard");
+          throw new Error(data.detail || "Failed to load merchant dashboard.");
         }
 
-        if (cancelled) return;
+        setRole(data.role);
+        setMode(userMode);
+        setProfile(data.profile);
+        setMessage(data.message || "");
 
-        setData(body);
-        setEditForm({
-          shop_name: body.profile.shop_name || "",
-          business_area_id:
-            body.profile.business_area_id != null
-              ? String(body.profile.business_area_id)
-              : "",
-          business_type: body.profile.business_type || "",
-          address: body.profile.address || "",
-          phone: body.profile.phone || "",
-          opening_time: body.profile.opening_time || "",
-          closing_time: body.profile.closing_time || "",
-          years_in_business:
-            body.profile.years_in_business != null
-              ? String(body.profile.years_in_business)
-              : "",
-          description: body.profile.description || "",
-        });
-
-        setAreasLoading(true);
-        const areasResp = await fetch("http://127.0.0.1:8000/api/travel/areas/");
-        if (areasResp.ok) {
-          const areasData = await areasResp.json();
-          if (!cancelled) setAreas(areasData);
+        const areaResp = await fetch(
+          "http://127.0.0.1:8000/api/travel/areas/"
+        );
+        if (areaResp.ok) {
+          const areaData = await areaResp.json();
+          setAreas(areaData);
         }
+
+        setError("");
       } catch (err) {
-        if (!cancelled) {
-          console.error(err);
-          setError(err.message);
-        }
+        console.error(err);
+        setError(err.message || "Error loading merchant dashboard.");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-          setAreasLoading(false);
-        }
+        setLoading(false);
       }
     }
 
-    loadData();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn, realRole, token]);
+    loadAll();
+  }, [isLoggedIn, token, userMode]);
+
+  function handleEditToggle() {
+    if (!profile) return;
+    setEditData({
+      shop_name: profile.shop_name || "",
+      business_area_id: profile.business_area_id || "",
+      business_type: profile.business_type || "",
+      address: profile.address || "",
+      phone: profile.phone || "",
+      opening_time: profile.opening_time || "",
+      closing_time: profile.closing_time || "",
+      years_in_business: profile.years_in_business || "",
+      description: profile.description || "",
+    });
+    setEditMode(true);
+  }
 
   function handleEditChange(e) {
     const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
+    setEditData((prev) => ({ ...prev, [name]: value }));
   }
 
-  async function handleSaveProfile(e) {
+  async function handleEditSubmit(e) {
     e.preventDefault();
-    setSaving(true);
-    setError("");
-    setMessage("");
+    if (!token) return;
 
     try {
-      if (!isLoggedIn || realRole !== "MERCHANT") {
-        throw new Error("You must log in as a merchant to update your profile.");
-      }
+      setApiMessage("");
+      setError("");
 
       const resp = await fetch(
         "http://127.0.0.1:8000/api/accounts/dashboard/merchant/profile/",
@@ -267,500 +126,309 @@ function MerchantDashboard() {
             "Content-Type": "application/json",
             "X-User-Token": token,
           },
-          body: JSON.stringify({
-            shop_name: editForm.shop_name,
-            business_area_id: editForm.business_area_id
-              ? parseInt(editForm.business_area_id, 10)
-              : null,
-            business_type: editForm.business_type,
-            address: editForm.address,
-            phone: editForm.phone,
-            opening_time: editForm.opening_time || null,
-            closing_time: editForm.closing_time || null,
-            years_in_business:
-              parseInt(editForm.years_in_business, 10) || 0,
-            description: editForm.description,
-          }),
+          body: JSON.stringify(editData),
         }
       );
-
-      const body = await resp.json().catch(() => ({}));
+      const data = await resp.json();
 
       if (!resp.ok) {
-        throw new Error(body.detail || "Failed to update merchant profile");
+        throw new Error(data.detail || "Failed to update merchant profile.");
       }
 
-      setData((prev) => ({
+      setProfile((prev) => ({
         ...prev,
-        profile: {
-          ...prev.profile,
-          shop_name: body.shop_name,
-          business_area: body.business_area,
-          business_area_id: body.business_area_id,
-          business_type: body.business_type,
-          address: body.address,
-          phone: body.phone,
-          opening_time: body.opening_time,
-          closing_time: body.closing_time,
-          years_in_business: body.years_in_business,
-          description: body.description,
-          is_verified: body.is_verified,
-          status: body.status,
-        },
+        shop_name: data.shop_name,
+        business_area: data.business_area,
+        business_area_id: data.business_area_id,
+        business_type: data.business_type,
+        address: data.address,
+        phone: data.phone,
+        opening_time: data.opening_time,
+        closing_time: data.closing_time,
+        years_in_business: data.years_in_business,
+        description: data.description,
+        is_verified: data.is_verified,
+        status: data.status,
       }));
-      setMessage("Business profile updated successfully.");
-      setShowEdit(false);
+      setApiMessage("Profile updated successfully.");
+      setEditMode(false);
     } catch (err) {
       console.error(err);
-      setError(err.message);
-    } finally {
-      setSaving(false);
+      setError(err.message || "Error updating merchant profile.");
     }
   }
 
   async function handleRequestVerification() {
-    try {
-      setRequesting(true);
-      setError("");
-      setMessage("");
+    if (!token) return;
 
-      if (!isLoggedIn || realRole !== "MERCHANT") {
-        throw new Error(
-          "You must log in as a merchant to request verification."
-        );
-      }
+    try {
+      setVerifLoading(true);
+      setVerifMessage("");
+      setVerifError("");
 
       const resp = await fetch(
         "http://127.0.0.1:8000/api/accounts/dashboard/merchant/request-verification/",
         {
           method: "POST",
-          headers: {
-            "X-User-Token": token,
-          },
+          headers: { "X-User-Token": token },
         }
       );
-
-      const body = await resp.json().catch(() => ({}));
+      const data = await resp.json();
 
       if (!resp.ok) {
-        if (
-          body.detail === "Verification request already pending." ||
-          body.detail === "This business is already verified."
-        ) {
-          setMessage(body.detail);
-          return;
-        }
-        throw new Error(body.detail || "Failed to request verification");
+        throw new Error(data.detail || "Failed to request verification.");
       }
 
-      setMessage(body.message || "Verification request sent.");
+      setVerifMessage(data.message || "Verification request submitted.");
+      setProfile((prev) => ({
+        ...prev,
+        status: data.status === "APPROVED"
+          ? "Verified"
+          : data.status === "PENDING"
+          ? "Pending verification"
+          : prev?.status || "Not requested",
+      }));
     } catch (err) {
       console.error(err);
-      setError(err.message);
+      setVerifError(err.message || "Error submitting verification request.");
     } finally {
-      setRequesting(false);
+      setVerifLoading(false);
     }
   }
 
-  if (loading) {
+  if (!isLoggedIn) {
     return (
       <div className="dashboard-page">
         <div className="dashboard-card">
-          <TopBar />
+          <h2>Merchant Dashboard</h2>
+          <p>You are not logged in. Please log in again.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || !profile) {
+    return (
+      <div className="dashboard-page">
+        <div className="dashboard-card">
           <h2>Merchant Dashboard</h2>
           <p>Loading your data...</p>
+          {error && <p style={{ color: "red" }}>{error}</p>}
         </div>
       </div>
     );
   }
-
-  if (error || !data) {
-    return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <TopBar />
-          <h2>Merchant Dashboard</h2>
-          <p style={{ color: "#b91c1c" }}>{error || "No data"}</p>
-        </div>
-      </div>
-    );
-  }
-
-  const { profile, role, message: apiMessage } = data;
-  const isVerified = profile.is_verified;
 
   return (
-    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
-      <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 900px;
-          background: white;
-          padding: 1.5rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
-        }
-        .stats-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        .stat-card {
-          padding: 0.75rem;
-          background-color: #f9fafb;
-          border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
-        }
-        .stat-card h3 {
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #6b7280;
-          margin-bottom: 0.15rem;
-        }
-        .stat-card p {
-          font-size: 1.1rem;
-          font-weight: 700;
-          color: #1f2937;
-        }
-        .primary-btn {
-          padding: 0.45rem 0.9rem;
-          border: none;
-          border-radius: 0.5rem;
-          background-color: #3b82f6;
-          color: white;
-          font-weight: 600;
-          cursor: pointer;
-          font-size: 0.85rem;
-        }
-        .primary-btn:disabled {
-          background-color: #93c5fd;
-          cursor: not-allowed;
-        }
-        .form-label {
-          display: block;
-          font-size: 0.8rem;
-          margin-bottom: 4px;
-        }
-        .form-input, .form-select, .form-textarea {
-          width: 100%;
-          padding: 0.45rem 0.7rem;
-          border-radius: 0.375rem;
-          border: 1px solid #d1d5db;
-          font-size: 0.85rem;
-        }
-      `}</style>
-
+    <div className="dashboard-page">
       <div className="dashboard-card">
-        <TopBar />
-
-        {parsedUser && realRole === "MERCHANT" && mode !== "TRAVELER" && (
-          <button
-            type="button"
-            className="primary-btn"
-            style={{ marginBottom: "0.75rem", marginRight: "0.5rem" }}
-            onClick={() => {
-              const updated = { ...parsedUser, mode: "TRAVELER" };
-              localStorage.setItem("ttg_user", JSON.stringify(updated));
-              window.location.href = "/traveler";
-            }}
-          >
-            Switch to traveler mode
-          </button>
-        )}
-
-        <h2 className="text-2xl font-bold text-gray-800">Merchant Dashboard</h2>
-        <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>{apiMessage}</p>
+        <div className="user-welcome">
+          <div>
+            <strong>{profile.shop_name}</strong>
+            <div style={{ fontSize: "0.9rem", opacity: 0.9 }}>
+              {profile.business_area} • {profile.status}
+            </div>
+          </div>
+        </div>
 
         {message && (
-          <div
-            style={{
-              padding: "0.5rem 0.75rem",
-              marginBottom: "0.75rem",
-              background: "#d1fae5",
-              color: "#065f46",
-              borderRadius: "0.375rem",
-              fontSize: "0.85rem",
-            }}
-          >
-            {message}
-          </div>
+          <p style={{ marginTop: "0.5rem", color: "#4b5563" }}>{message}</p>
+        )}
+
+        {apiMessage && (
+          <p style={{ color: "green", marginTop: "0.5rem" }}>{apiMessage}</p>
         )}
         {error && (
-          <div
-            style={{
-              padding: "0.5rem 0.75rem",
-              marginBottom: "0.75rem",
-              background: "#fee2e2",
-              color: "#b91c1c",
-              borderRadius: "0.375rem",
-              fontSize: "0.85rem",
-            }}
-          >
-            {error}
-          </div>
+          <p style={{ color: "red", marginTop: "0.5rem" }}>{error}</p>
         )}
 
-        {/* Summary cards */}
-        <div className="stats-row">
-          <div className="stat-card">
-            <h3>Shop name</h3>
-            <p>{profile.shop_name}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Business area</h3>
-            <p>{profile.business_area}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Status</h3>
-            <p>{profile.status}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Years in business</h3>
-            <p>{profile.years_in_business}</p>
-          </div>
-        </div>
+        <h3 style={{ marginTop: "1rem", marginBottom: "0.75rem" }}>
+          Business details
+        </h3>
+        <p>
+          <strong>Role:</strong> {role} (mode: {mode})
+        </p>
+        <p>
+          <strong>Business type:</strong> {profile.business_type || "Not set"}
+        </p>
+        <p>
+          <strong>Address:</strong> {profile.address || "Not set"}
+        </p>
+        <p>
+          <strong>Phone:</strong> {profile.phone || "Not set"}
+        </p>
+        <p>
+          <strong>Opening time:</strong>{" "}
+          {formatTimeToAMPM(profile.opening_time)}
+        </p>
+        <p>
+          <strong>Closing time:</strong>{" "}
+          {formatTimeToAMPM(profile.closing_time)}
+        </p>
+        <p>
+          <strong>Years in business:</strong> {profile.years_in_business}
+        </p>
+        <p>
+          <strong>Verified:</strong> {profile.is_verified ? "Yes" : "No"}
+        </p>
+        <p>
+          <strong>Description:</strong> {profile.description}
+        </p>
 
-        {/* Profile details */}
-        <section style={{ marginTop: "0.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">Business details</h3>
-          <p>
-            <strong>Role:</strong> {role} (mode: {mode})
-          </p>
-          <p>
-            <strong>Business type:</strong> {profile.business_type || "Not set"}
-          </p>
-          <p>
-            <strong>Address:</strong> {profile.address || "Not set"}
-          </p>
-          <p>
-            <strong>Phone:</strong> {profile.phone || "Not set"}
-          </p>
-          <p>
-            <strong>Opening time:</strong> {formatTimeToAMPM(profile.opening_time)}
-          </p>
-          <p>
-            <strong>Closing time:</strong> {formatTimeToAMPM(profile.closing_time)}
-          </p>
-          <p>
-            <strong>Verified:</strong> {profile.is_verified ? "Yes" : "No"}
-          </p>
-          {profile.description && (
-            <p>
-              <strong>Description:</strong> {profile.description}
-            </p>
-          )}
-        </section>
+        <button
+          className="btn btn-sm btn-outline-primary"
+          onClick={handleEditToggle}
+          style={{ marginTop: "0.75rem" }}
+        >
+          Edit business profile
+        </button>
 
-        {/* Request verification button */}
-        <div style={{ marginTop: "0.75rem", marginBottom: "0.75rem" }}>
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={handleRequestVerification}
-            disabled={requesting}
-          >
-            {requesting ? "Requesting..." : "Request verification"}
-          </button>
-        </div>
-
-        {/* Edit business profile */}
-        <section style={{ marginTop: "0.75rem" }}>
-          <div
+        {editMode && (
+          <form
+            onSubmit={handleEditSubmit}
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "0.5rem",
+              marginTop: "1rem",
+              padding: "1rem",
+              borderRadius: "0.5rem",
+              border: "1px solid #e5e7eb",
+              background: "#f9fafb",
             }}
           >
-            <h3 className="text-xl font-semibold">Edit business profile</h3>
+            <div className="form-row">
+              <label>Shop name</label>
+              <input
+                name="shop_name"
+                value={editData.shop_name}
+                onChange={handleEditChange}
+              />
+            </div>
+
+            <div className="form-row" style={{ marginTop: "0.75rem" }}>
+              <label>Business area</label>
+              <select
+                name="business_area_id"
+                value={editData.business_area_id}
+                onChange={handleEditChange}
+              >
+                <option value="">Select area</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-row" style={{ marginTop: "0.75rem" }}>
+              <label>Business type</label>
+              <input
+                name="business_type"
+                value={editData.business_type}
+                onChange={handleEditChange}
+              />
+            </div>
+
+            <div className="form-row" style={{ marginTop: "0.75rem" }}>
+              <label>Address</label>
+              <input
+                name="address"
+                value={editData.address}
+                onChange={handleEditChange}
+              />
+            </div>
+
+            <div className="form-row" style={{ marginTop: "0.75rem" }}>
+              <label>Phone</label>
+              <input
+                name="phone"
+                value={editData.phone}
+                onChange={handleEditChange}
+              />
+            </div>
+
+            <div
+              className="form-row"
+              style={{ marginTop: "0.75rem", display: "flex", gap: "0.75rem" }}
+            >
+              <div style={{ flex: 1 }}>
+                <label>Opening time (HH:MM)</label>
+                <input
+                  name="opening_time"
+                  value={editData.opening_time}
+                  onChange={handleEditChange}
+                  placeholder="09:00"
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label>Closing time (HH:MM)</label>
+                <input
+                  name="closing_time"
+                  value={editData.closing_time}
+                  onChange={handleEditChange}
+                  placeholder="21:00"
+                />
+              </div>
+            </div>
+
+            <div className="form-row" style={{ marginTop: "0.75rem" }}>
+              <label>Years in business</label>
+              <input
+                type="number"
+                min="0"
+                name="years_in_business"
+                value={editData.years_in_business}
+                onChange={handleEditChange}
+              />
+            </div>
+
+            <div className="form-row" style={{ marginTop: "0.75rem" }}>
+              <label>Description</label>
+              <textarea
+                name="description"
+                value={editData.description}
+                onChange={handleEditChange}
+              />
+            </div>
+
             <button
-              type="button"
-              className="primary-btn"
-              style={{ padding: "0.35rem 0.9rem", fontSize: "0.8rem" }}
-              onClick={() => setShowEdit((prev) => !prev)}
+              type="submit"
+              className="btn btn-primary btn-sm"
+              style={{ marginTop: "0.75rem" }}
             >
-              {showEdit ? "Hide form" : "Edit profile"}
+              Save changes
             </button>
-          </div>
+          </form>
+        )}
 
-          {showEdit && (
-            <form
-              onSubmit={handleSaveProfile}
-              style={{ maxWidth: "480px", display: "grid", gap: "0.6rem" }}
-            >
-              {/* Business info block */}
-              <div
-                style={{
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid #e5e7eb",
-                  background: "#f9fafb",
-                }}
-              >
-                <h4
-                  style={{
-                    marginBottom: "0.35rem",
-                    fontSize: "0.9rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  Business Information
-                </h4>
+        <hr style={{ margin: "1.5rem 0" }} />
 
-                <div style={{ display: "grid", gap: "0.5rem" }}>
-                  <div>
-                    <label className="form-label">Business name</label>
-                    <input
-                      className="form-input"
-                      name="shop_name"
-                      value={editForm.shop_name}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                    />
-                  </div>
+        <h3>Verification status</h3>
+        <p>
+          Current status:{" "}
+          <strong>{profile.status || "Not requested"}</strong>
+        </p>
 
-                  <div>
-                    <label className="form-label">Business type</label>
-                    <input
-                      className="form-input"
-                      name="business_type"
-                      value={editForm.business_type}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                      placeholder="Restaurant, Cafe, Shop..."
-                    />
-                  </div>
+        <button
+          className="btn btn-sm btn-outline-success"
+          onClick={handleRequestVerification}
+          disabled={verifLoading || profile.is_verified}
+          style={{ marginTop: "0.5rem" }}
+        >
+          {verifLoading
+            ? "Submitting..."
+            : profile.is_verified
+            ? "Already verified"
+            : "Request verification"}
+        </button>
 
-                  <div>
-                    <label className="form-label">Business area</label>
-                    {areasLoading ? (
-                      <p style={{ fontSize: "0.8rem" }}>Loading areas...</p>
-                    ) : (
-                      <select
-                        className="form-select"
-                        name="business_area_id"
-                        value={editForm.business_area_id}
-                        onChange={handleEditChange}
-                        disabled={isVerified}
-                      >
-                        <option value="">Select area…</option>
-                        {areas.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="form-label">Address</label>
-                    <input
-                      className="form-input"
-                      name="address"
-                      value={editForm.address}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                      placeholder="Street, area, city"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">Phone</label>
-                    <input
-                      className="form-input"
-                      name="phone"
-                      value={editForm.phone}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                      placeholder="+880..."
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Timing + description */}
-              <div
-                style={{
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid #e5e7eb",
-                  background: "#f9fafb",
-                }}
-              >
-                <h4
-                  style={{
-                    marginBottom: "0.35rem",
-                    fontSize: "0.9rem",
-                    fontWeight: 600,
-                  }}
-                >
-                  Hours & Description
-                </h4>
-
-                <div style={{ display: "grid", gap: "0.5rem" }}>
-                  <div>
-                    <label className="form-label">Opening time</label>
-                    <input
-                      className="form-input"
-                      type="time"
-                      name="opening_time"
-                      value={editForm.opening_time}
-                      onChange={handleEditChange}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">Closing time</label>
-                    <input
-                      className="form-input"
-                      type="time"
-                      name="closing_time"
-                      value={editForm.closing_time}
-                      onChange={handleEditChange}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">Years in business</label>
-                    <input
-                      className="form-input"
-                      name="years_in_business"
-                      type="number"
-                      min="0"
-                      value={editForm.years_in_business}
-                      onChange={handleEditChange}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">Description</label>
-                    <textarea
-                      className="form-textarea"
-                      name="description"
-                      rows={3}
-                      value={editForm.description}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                      placeholder="Tell travelers what makes your place special"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="primary-btn"
-                disabled={saving}
-                style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}
-              >
-                {saving ? "Saving..." : "Save changes"}
-              </button>
-            </form>
-          )}
-        </section>
+        {verifMessage && (
+          <p style={{ color: "green", marginTop: "0.5rem" }}>
+            {verifMessage}
+          </p>
+        )}
+        {verifError && (
+          <p style={{ color: "red", marginTop: "0.5rem" }}>{verifError}</p>
+        )}
       </div>
     </div>
   );

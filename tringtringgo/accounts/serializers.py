@@ -5,6 +5,17 @@ from rest_framework import serializers
 
 from .models import UserAccount, TravelerProfile, MerchantProfile, AdminProfile
 from travel.models import Area
+from django.contrib.auth import get_user_model
+from rest_framework import serializers
+
+User = get_user_model()
+
+
+class UserSearchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "username", "email"]
+
 
 
 class SignupSerializer(serializers.Serializer):
