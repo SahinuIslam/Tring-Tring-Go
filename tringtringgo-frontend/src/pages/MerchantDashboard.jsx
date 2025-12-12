@@ -323,25 +323,23 @@ function MerchantDashboard() {
       setRequesting(true);
       setError("");
       setMessage("");
-
+  
       if (!isLoggedIn || realRole !== "MERCHANT") {
         throw new Error(
           "You must log in as a merchant to request verification."
         );
       }
-
+  
       const resp = await fetch(
         "http://127.0.0.1:8000/api/accounts/dashboard/merchant/request-verification/",
         {
           method: "POST",
-          headers: {
-            "X-User-Token": token,
-          },
+          headers: { "X-User-Token": token },
         }
       );
-
+  
       const body = await resp.json().catch(() => ({}));
-
+  
       if (!resp.ok) {
         if (
           body.detail === "Verification request already pending." ||
@@ -352,8 +350,16 @@ function MerchantDashboard() {
         }
         throw new Error(body.detail || "Failed to request verification");
       }
-
+  
+      // success
       setMessage(body.message || "Verification request sent.");
+      setData((prev) => ({
+        ...prev,
+        profile: {
+          ...prev.profile,
+          status: body.status || "PENDING",
+        },
+      }));
     } catch (err) {
       console.error(err);
       setError(err.message);
@@ -361,6 +367,8 @@ function MerchantDashboard() {
       setRequesting(false);
     }
   }
+  
+  
 
   if (loading) {
     return (
