@@ -430,7 +430,7 @@ function TravelerDashboard() {
         throw new Error("You must log in to write reviews.");
       }
 
-      const resp = await fetch("http://127.0.0.1:8000/api/travel/reviews/", {
+      const resp = await fetch("http://127.0.0.1:8000/api/travel/reviews/create/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
