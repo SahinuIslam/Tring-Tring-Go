@@ -10,7 +10,9 @@ from .views import (
     update_review,
     list_areas,
     explore_merchants,
+    ServiceListAPIView,
 )
+
 
 urlpatterns = [
     # places
@@ -32,4 +34,8 @@ urlpatterns = [
 
     # explore merchants
     path("explore/merchants/", explore_merchants, name="explore-merchants"),
+
+    # existing travel urls...
+    path("services/", ServiceListAPIView.as_view(), name="service-list"),
+
 ]

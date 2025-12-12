@@ -132,3 +132,32 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.traveler.user.username} → {self.place.name} ({self.rating})"
+    
+
+class Service(models.Model):
+    CATEGORY_CHOICES = [
+        ("HOSPITAL", "Hospital"),
+        ("POLICE", "Police station"),
+        ("ATM", "ATM"),
+        ("PHARMACY", "Pharmacy"),
+        ("TRANSPORT", "Transport hub"),
+    ]
+
+    name = models.CharField(max_length=200)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    area = models.ForeignKey("Area", on_delete=models.CASCADE, related_name="services")
+    address = models.CharField(max_length=255, blank=True)
+    phone = models.CharField(max_length=50, blank=True)
+    open_hours = models.CharField(max_length=100, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["area__name", "category", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
+

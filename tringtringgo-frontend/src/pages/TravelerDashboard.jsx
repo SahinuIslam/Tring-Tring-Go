@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 // Top navigation bar
-function TopBar() {
+export function TopBar() {
   async function handleLogout() {
     try {
       await fetch("http://127.0.0.1:8000/api/accounts/logout/", {

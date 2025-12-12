@@ -21,6 +21,12 @@ import AdminDashboard from "./pages/AdminDashboard";
 // optional saved places
 // import SavedPlacesPage from "./SavedPlacesPage";
 
+//Services
+//import TravelerDashboard from "./pages/TravelerDashboard";
+import Services from "./Services";
+
+
+
 // community & explore
 import CommunityFeed from "./CommunityFeed";
 import ExplorePage from "./ExplorePage";
@@ -40,6 +46,10 @@ function App() {
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/explore" element={<ExplorePage />} />
         <Route path="/community" element={<CommunityFeed />} />
+
+        <Route path="/services" element={<Services />} />
+        <Route path="/traveler" element={<TravelerDashboard />} />
+
 
         {/* default: go to login */}
         <Route path="/" element={<Navigate to="/login" replace />} />

@@ -10,12 +10,14 @@ from rest_framework.response import Response
 
 from accounts.models import UserAccount, MerchantProfile
 from accounts.views import get_or_create_traveler_profile
-from .models import Place, SavedPlace, Review, Area
+from rest_framework import generics, permissions
+from .models import Place, SavedPlace, Review, Area, Service
 from .serializers import (
     SavedPlaceSerializer,
     PlaceSerializer,
     ReviewSerializer,
-    MerchantProfileSerializer,  # you must define this in travel/serializers.py
+    MerchantProfileSerializer,
+    ServiceSerializer,
 )
 
 
@@ -286,3 +288,25 @@ def explore_merchants(request):
 
     serializer = MerchantProfileSerializer(qs, many=True)
     return Response(serializer.data)
+
+
+
+
+class ServiceListAPIView(generics.ListAPIView):
+    """
+    List all services (hospitals, police, atms, pharmacies, transport hubs).
+    Supports optional ?category=HOSPITAL&area=<id> filters.
+    """
+    queryset = Service.objects.select_related("area").all()
+    serializer_class = ServiceSerializer
+    permission_classes = [permissions.AllowAny]  # or your existing auth rule
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        category = self.request.query_params.get("category")
+        area_id = self.request.query_params.get("area")
+        if category:
+            qs = qs.filter(category=category)
+        if area_id:
+            qs = qs.filter(area_id=area_id)
+        return qs
