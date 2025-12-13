@@ -1,15 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { TopBar } from "./pages/TravelerDashboard";
-
-
-
-// Reuse the TopBar component from TravelerDashboard file
-// If TopBar is not exported separately, we can call TravelerDashboard.TopBar
-// but since it's defined inside that file, easiest is to export it there.
-// For now, assume you changed TravelerDashboard.jsx to:
-//   export function TopBar() { ... }
-//   export default TravelerDashboard;
-//import { TopBar } from "./TravelerDashboard";
 
 function Services() {
   const [services, setServices] = useState([]);
@@ -39,11 +28,13 @@ function Services() {
         const parsed = stored ? JSON.parse(stored) : null;
         const token = parsed?.token || parsed?.username || "";
 
-        // Adjust this URL to your actual Django endpoint (e.g. /api/travel/services/)
-        const resp = await fetch("http://127.0.0.1:8000/api/travel/services/", {
-          method: "GET",
-          headers: token ? { "X-User-Token": token } : {},
-        });
+        const resp = await fetch(
+          "http://127.0.0.1:8000/api/travel/services/",
+          {
+            method: "GET",
+            headers: token ? { "X-User-Token": token } : {},
+          }
+        );
 
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
@@ -121,11 +112,7 @@ function Services() {
       `}</style>
 
       <div className="dashboard-card">
-        <TopBar />
-
-        <h2 className="text-2xl font-bold text-gray-800">
-          Nearby Services
-        </h2>
+        <h2 className="text-2xl font-bold text-gray-800">Nearby Services</h2>
         <p className="text-sm text-gray-600 mb-3">
           Find important services like hospitals, police stations, ATMs,
           pharmacies and transport hubs around your travel area.
@@ -314,7 +301,6 @@ function Services() {
                       fontSize: "0.9rem",
                     }}
                   >
-                    {/* Placeholder for real map integration (e.g. Google Maps, Leaflet) */}
                     Map placeholder: show location of{" "}
                     <strong style={{ marginLeft: "0.25rem" }}>
                       {selectedService.name}

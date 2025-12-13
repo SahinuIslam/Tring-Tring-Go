@@ -6,8 +6,14 @@ function ExplorePage() {
   const [savedIds, setSavedIds] = useState([]);
   const [loadingPlaces, setLoadingPlaces] = useState(true);
   const [placesError, setPlacesError] = useState(null);
+
+  // filters
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [areaFilter, setAreaFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL"); // NEW: place type
+
+  /* ---------- load data ---------- */
 
   useEffect(() => {
     async function loadPlaces() {
@@ -43,6 +49,7 @@ function ExplorePage() {
           }
         );
         if (!resp.ok) return;
+
         const data = await resp.json();
         const ids = data
           .map((item) => item.place?.id)
@@ -55,20 +62,51 @@ function ExplorePage() {
     loadSaved();
   }, []);
 
-  const filteredAll = useMemo(() => {
+  /* ---------- filtering: area -> type -> search ---------- */
+
+  const filteredBase = useMemo(() => {
     let result = places;
+
+    // area
     if (areaFilter) {
       result = result.filter((p) => p.area_name === areaFilter);
     }
+
+    // place type / category
+    if (typeFilter && typeFilter !== "ALL") {
+      result = result.filter((p) => p.category === typeFilter);
+    }
+
+    // text search
     if (!search.trim()) return result;
-    const q = search.toLowerCase();
-    return result.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.area_name && p.area_name.toLowerCase().includes(q)) ||
-        (p.category && p.category.toLowerCase().includes(q))
-    );
-  }, [places, search, areaFilter]);
+
+    const q = search.trim().toLowerCase();
+    return result.filter((p) => {
+      const name = (p.name || "").toLowerCase();
+      const area = (p.area_name || "").toLowerCase();
+      return name.includes(q) || area.includes(q);
+    });
+  }, [places, areaFilter, typeFilter, search]);
+
+  const hasSearch = search.trim().length > 0;
+
+  const topRated = useMemo(
+    () =>
+      [...filteredBase]
+        .filter((p) => p.average_rating >= 4.5)
+        .sort((a, b) => b.average_rating - a.average_rating)
+        .slice(0, 10),
+    [filteredBase]
+  );
+
+  const popular = useMemo(
+    () => filteredBase.filter((p) => p.is_popular).slice(0, 10),
+    [filteredBase]
+  );
+
+  const allPlaces = filteredBase;
+
+  /* ---------- save / unsave ---------- */
 
   const toggleSave = async (placeId) => {
     try {
@@ -133,19 +171,7 @@ function ExplorePage() {
     }
   };
 
-  const topRated = useMemo(
-    () =>
-      [...places]
-        .filter((p) => p.average_rating >= 4.5)
-        .sort((a, b) => b.average_rating - a.average_rating)
-        .slice(0, 10),
-    [places]
-  );
-
-  const popular = useMemo(
-    () => places.filter((p) => p.is_popular).slice(0, 10),
-    [places]
-  );
+  /* ---------- card ---------- */
 
   const renderCard = (p) => {
     const isSaved = savedIds.includes(p.id);
@@ -253,53 +279,11 @@ function ExplorePage() {
             {isSaved ? "Saved" : "Save"}
           </button>
         </div>
-
-        {Array.isArray(p.latest_reviews) && p.latest_reviews.length > 0 && (
-          <div
-            style={{
-              borderTop: "1px solid #e5e7eb",
-              padding: "0.6rem 0.9rem",
-              background: "#f9fafb",
-            }}
-          >
-            <p
-              style={{
-                margin: 0,
-                marginBottom: "0.25rem",
-                fontSize: "0.8rem",
-                fontWeight: 500,
-                color: "#4b5563",
-              }}
-            >
-              Recent reviews
-            </p>
-            {p.latest_reviews.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  marginBottom: "0.35rem",
-                  fontSize: "0.8rem",
-                  color: "#4b5563",
-                }}
-              >
-                <div style={{ fontWeight: 500 }}>
-                  {r.traveler_username || "Traveler"} · ⭐ {r.rating}
-                </div>
-                {r.title && <div style={{ fontWeight: 500 }}>{r.title}</div>}
-                {r.text && (
-                  <div style={{ color: "#6b7280" }}>
-                    {r.text.length > 100
-                      ? r.text.slice(0, 100) + "..."
-                      : r.text}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     );
   };
+
+  /* ---------- loading / error ---------- */
 
   if (loadingPlaces) {
     return (
@@ -325,12 +309,15 @@ function ExplorePage() {
     );
   }
 
+  /* ---------- main render ---------- */
+
   return (
     <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
       <div className="dashboard-card" style={{ maxWidth: 900, width: "100%" }}>
         <TopBar />
         <h2 className="text-2xl font-bold text-gray-800">Explore</h2>
 
+        {/* filters row */}
         <div
           style={{
             margin: "1rem 0",
@@ -339,11 +326,15 @@ function ExplorePage() {
             flexWrap: "wrap",
           }}
         >
+          {/* search input */}
           <input
             type="text"
-            placeholder="Search foods or places..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by place name or area..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") setSearch(searchInput.trim());
+            }}
             style={{
               flex: 1,
               minWidth: "200px",
@@ -353,6 +344,26 @@ function ExplorePage() {
             }}
           />
 
+          {/* Search button */}
+          <button
+            type="button"
+            onClick={() => setSearch(searchInput.trim())}
+            style={{
+              padding: "0.6rem 1.2rem",
+              borderRadius: "999px",
+              border: "1px solid #111827",
+              backgroundColor: "#111827",
+              color: "white",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            Search
+          </button>
+
+          {/* Area filter */}
           <select
             value={areaFilter}
             onChange={(e) => setAreaFilter(e.target.value)}
@@ -373,58 +384,123 @@ function ExplorePage() {
               </option>
             ))}
           </select>
+
+          {/* Type filter */}
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={{
+              minWidth: "160px",
+              padding: "0.6rem 0.9rem",
+              borderRadius: "999px",
+              border: "1px solid #d1d5db",
+              fontSize: "0.85rem",
+            }}
+          >
+             <option value="ALL">All types</option>
+  <option value="PARK">Park</option>
+  <option value="MUSEUM">Museum</option>
+  <option value="RESTAURANT">Restaurant</option>
+  <option value="CAFE">Cafe</option>
+  <option value="STREET_FOOD">Street Food</option>
+  <option value="FAST_FOOD">Fast Food</option>
+  <option value="BAKERY">Bakery</option>
+  <option value="MALL">Mall</option>
+  <option value="SHOP">Shop</option>
+  <option value="LOCAL_MARKET">Local Market</option>
+  <option value="SUPERMARKET">Supermarket</option>
+  <option value="HISTORICAL_SITE">Historical Site</option>
+  <option value="LANDMARK">Landmark</option>
+  <option value="LAKE">Lake</option>
+  <option value="BEACH">Beach</option>
+  <option value="ZOO">Zoo</option>
+  <option value="CINEMA">Cinema</option>
+  <option value="AMUSEMENT_PARK">Amusement Park</option>
+  <option value="SPORTS_COMPLEX">Sports Complex</option>
+  <option value="HOTEL">Hotel</option>
+  <option value="GUEST_HOUSE">Guest House</option>
+  <option value="TRANSPORT">Transport Hub</option>
+  <option value="OTHER">Other</option>
+            {/* add more matching your backend */}
+          </select>
         </div>
 
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">Top rated places</h3>
-          {topRated.length === 0 ? (
-            <p style={{ color: "#6b7280" }}>No top rated places yet.</p>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "1rem",
-              }}
-            >
-              {topRated.map(renderCard)}
-            </div>
-          )}
-        </section>
+        {/* dynamic sections */}
+        {hasSearch ? (
+          <section style={{ marginTop: "1.5rem" }}>
+            <h3 className="text-xl font-semibold mb-2">Search results</h3>
+            {allPlaces.length === 0 ? (
+              <p style={{ color: "#6b7280" }}>No places match your search.</p>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: "1rem",
+                }}
+              >
+                {allPlaces.map(renderCard)}
+              </div>
+            )}
+          </section>
+        ) : (
+          <>
+            <section style={{ marginTop: "1.5rem" }}>
+              <h3 className="text-xl font-semibold mb-2">Top rated places</h3>
+              {topRated.length === 0 ? (
+                <p style={{ color: "#6b7280" }}>No top rated places yet.</p>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "1rem",
+                  }}
+                >
+                  {topRated.map(renderCard)}
+                </div>
+              )}
+            </section>
 
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">Popular places</h3>
-          {popular.length === 0 ? (
-            <p style={{ color: "#6b7280" }}>No popular places marked yet.</p>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "1rem",
-              }}
-            >
-              {popular.map(renderCard)}
-            </div>
-          )}
-        </section>
+            <section style={{ marginTop: "1.5rem" }}>
+              <h3 className="text-xl font-semibold mb-2">Popular places</h3>
+              {popular.length === 0 ? (
+                <p style={{ color: "#6b7280" }}>No popular places marked yet.</p>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "1rem",
+                  }}
+                >
+                  {popular.map(renderCard)}
+                </div>
+              )}
+            </section>
 
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">All places</h3>
-          {filteredAll.length === 0 ? (
-            <p style={{ color: "#6b7280" }}>No places match your search.</p>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "1rem",
-              }}
-            >
-              {filteredAll.map(renderCard)}
-            </div>
-          )}
-        </section>
+            <section style={{ marginTop: "1.5rem" }}>
+              <h3 className="text-xl font-semibold mb-2">All places</h3>
+              {allPlaces.length === 0 ? (
+                <p style={{ color: "#6b7280" }}>No places available.</p>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "1rem",
+                  }}
+                >
+                  {allPlaces.map(renderCard)}
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </div>
     </div>
   );

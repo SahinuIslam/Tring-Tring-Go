@@ -3,6 +3,18 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.db import IntegrityError
 from rest_framework import serializers
+from .models import UserSettings
+
+class UserSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserSettings
+        fields = [
+            "notify_community",
+            "notify_chat",
+            "notify_merchant_updates",
+            "show_public_username",
+        ]
+
 
 from .models import (
     UserAccount,
@@ -48,6 +60,15 @@ class SignupSerializer(serializers.Serializer):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already in use.")
         return value
+
+    def validate(self, attrs):
+        role = attrs.get("role")
+        years_in_area = attrs.get("years_in_area", 0)
+        if role == "ADMIN" and (years_in_area is None or years_in_area < 3):
+            raise serializers.ValidationError(
+                {"years_in_area": "Admin must have at least 3 years in this area."}
+            )
+        return attrs
 
     # ---------- create user + profiles ----------
 
@@ -116,10 +137,10 @@ class SignupSerializer(serializers.Serializer):
                 name=merchant.shop_name,
                 area=merchant.business_area,
                 address=merchant.address or "",
-                category="SHOP",      # default category
+                category="SHOP",
                 is_popular=False,
                 owner=merchant,
-                image_url="",         # adjust if you add an image field
+                image_url="",
             )
 
         elif role == "ADMIN":
@@ -135,6 +156,7 @@ class SignupSerializer(serializers.Serializer):
                 )
 
         return user_account
+
 
 
 class LoginSerializer(serializers.Serializer):

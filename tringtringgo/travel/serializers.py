@@ -1,4 +1,3 @@
-# travel/serializers.py
 from rest_framework import serializers
 from accounts.models import MerchantProfile
 from .models import Place, SavedPlace, Review, Service
@@ -91,7 +90,9 @@ class MerchantProfileSerializer(serializers.ModelSerializer):
 
 class ServiceSerializer(serializers.ModelSerializer):
     area_name = serializers.CharField(source="area.name", read_only=True)
-    category_label = serializers.CharField(source="get_category_display", read_only=True)
+    category_label = serializers.CharField(
+        source="get_category_display", read_only=True
+    )
 
     class Meta:
         model = Service

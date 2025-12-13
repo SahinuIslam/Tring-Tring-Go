@@ -1,3 +1,4 @@
+from .views import update_profile_view
 from django.urls import path
 from .views import UserSearchView
 from .views import (
@@ -14,6 +15,9 @@ from .views import (
     merchant_request_verification,
     admin_verification_requests,
     admin_handle_verification,
+    user_settings_view,      # <-- add
+    delete_account_view,
+    update_profile_view,  
 )
 
 urlpatterns = [
@@ -34,4 +38,9 @@ urlpatterns = [
     path("dashboard/admin/verification-requests/", admin_verification_requests, name="admin-verification-requests"),
     path("dashboard/admin/verification-requests/<int:request_id>/", admin_handle_verification, name="admin-handle-verification"),
     path("users/search/", UserSearchView.as_view(), name="user-search"),
+    path("settings/", user_settings_view, name="user-settings"),
+    path("delete-account/", delete_account_view, name="delete-account"),
+    path("profile/", update_profile_view, name="update-profile"),
+    path("profile/", update_profile_view, name="update-profile"),
+
 ]

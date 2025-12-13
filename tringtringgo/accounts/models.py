@@ -153,3 +153,19 @@ class MerchantVerificationRequest(models.Model):
     def __str__(self):
         return f"{self.merchant.shop_name} - {self.status}"
 
+# Settings Model
+class UserSettings(models.Model):
+    user_account = models.OneToOneField(
+        "accounts.UserAccount",
+        on_delete=models.CASCADE,
+        related_name="settings",
+    )
+    notify_community = models.BooleanField(default=True)
+    notify_chat = models.BooleanField(default=True)
+    notify_merchant_updates = models.BooleanField(default=True)
+    show_public_username = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"Settings for {self.user_account.user.username}"
+
+

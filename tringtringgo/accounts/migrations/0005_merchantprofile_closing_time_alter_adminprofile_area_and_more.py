@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('accounts', '0004_loginlog'),
-        ('travel', '0004_remove_place_merchant_alter_place_area'),
+        ("travel", "0004_remove_place_merchant_alter_place_area"),
     ]
 
     operations = [

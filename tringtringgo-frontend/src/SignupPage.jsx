@@ -53,6 +53,18 @@ function SignupPage() {
     setMessage("");
     setErrors(null);
 
+    // frontend guard: admin must have >= 3 years in area
+    if (formData.role === "ADMIN") {
+      const years = parseInt(formData.years_in_area || "0", 10);
+      if (Number.isNaN(years) || years < 3) {
+        setErrors({
+          years_in_area: ["Admin must have at least 3 years in this area."],
+        });
+        setLoading(false);
+        return;
+      }
+    }
+
     const payload = {
       username: formData.username,
       email: formData.email,
@@ -104,7 +116,6 @@ function SignupPage() {
           description: "",
         });
 
-        // redirect to login after successful signup
         navigate("/login");
       } else {
         const errData = await response.json();
@@ -278,7 +289,12 @@ function SignupPage() {
               </div>
 
               <div className="form-row">
-                <label>Years in this area</label>
+                <label>
+                  Years in this area{" "}
+                  <span style={{ fontSize: "0.8rem", color: "#6b7280" }}>
+                    (minimum 3 for admins)
+                  </span>
+                </label>
                 <input
                   name="years_in_area"
                   type="number"
@@ -325,4 +341,3 @@ function SignupPage() {
 }
 
 export default SignupPage;
-        

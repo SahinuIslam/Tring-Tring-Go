@@ -39,7 +39,6 @@ class Place(models.Model):
 
     name = models.CharField(max_length=120)
 
-    # which area this place belongs to
     area = models.ForeignKey(
         Area,
         on_delete=models.CASCADE,
@@ -49,14 +48,12 @@ class Place(models.Model):
     )
     address = models.CharField(max_length=255, blank=True, default="")
 
-    # high-level type used for Explore filters
     category = models.CharField(
         max_length=30,
         choices=CATEGORY_CHOICES,
         default="OTHER",
     )
 
-    # mark as popular for Explore
     is_popular = models.BooleanField(default=False)
 
     opening_time = models.TimeField(null=True, blank=True)
@@ -64,11 +61,9 @@ class Place(models.Model):
 
     image_url = models.URLField(blank=True)
 
-    # stored copy of average rating for fast queries (computed from Review)
     average_rating = models.FloatField(default=0.0)
     review_count = models.PositiveIntegerField(default=0)
 
-    # OPTIONAL: which merchant owns this place (restaurant, cafe, shop, etc.)
     owner = models.ForeignKey(
         MerchantProfile,
         on_delete=models.SET_NULL,
@@ -98,7 +93,11 @@ class SavedPlace(models.Model):
         related_name="saved_places",
         limit_choices_to={"role": "TRAVELER"},
     )
-    place = models.ForeignKey(Place, on_delete=models.CASCADE, related_name="saved_by")
+    place = models.ForeignKey(
+        Place,
+        on_delete=models.CASCADE,
+        related_name="saved_by",
+    )
     saved_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -132,7 +131,7 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.traveler.user.username} → {self.place.name} ({self.rating})"
-    
+
 
 class Service(models.Model):
     CATEGORY_CHOICES = [
@@ -145,7 +144,11 @@ class Service(models.Model):
 
     name = models.CharField(max_length=200)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
-    area = models.ForeignKey("Area", on_delete=models.CASCADE, related_name="services")
+    area = models.ForeignKey(
+        Area,
+        on_delete=models.CASCADE,
+        related_name="services",
+    )
     address = models.CharField(max_length=255, blank=True)
     phone = models.CharField(max_length=50, blank=True)
     open_hours = models.CharField(max_length=100, blank=True)
@@ -160,4 +163,3 @@ class Service(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
-

@@ -28,6 +28,12 @@ import ChatWidget from "./chatbot/ChatWidget";
 import CommunityFeed from "./CommunityFeed";
 import ExplorePage from "./ExplorePage";
 
+// NEW: home page
+import Home from "./home";
+
+import SettingsPage from "./SettingsPage";
+
+
 function App() {
   return (
     <Router>
@@ -36,8 +42,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
 
-        {/* default: go to login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* default: go to home */}
+        <Route path="/" element={<Navigate to="/home" replace />} />
 
         {/* everything else WITH layout (has top bar + ChatPanel) */}
         <Route
@@ -46,7 +52,7 @@ function App() {
             <Layout>
               <Routes>
                 {/* home and main pages under Layout */}
-                
+                <Route path="/home" element={<Home />} />
                 <Route path="/explore" element={<ExplorePage />} />
                 <Route path="/community" element={<CommunityFeed />} />
                 <Route path="/services" element={<Services />} />
@@ -55,6 +61,9 @@ function App() {
                 <Route path="/traveler" element={<TravelerDashboard />} />
                 <Route path="/merchant" element={<MerchantDashboard />} />
                 <Route path="/admin" element={<AdminDashboard />} />
+                {/* settings page */}
+                <Route path="/settings" element={<SettingsPage />} />
+
               </Routes>
             </Layout>
           }
