@@ -6,6 +6,10 @@ function ExplorePage() {
   const [loadingPlaces, setLoadingPlaces] = useState(true);
   const [placesError, setPlacesError] = useState(null);
 
+  const [userRole, setUserRole] = useState('TRAVELER');
+  const [userMode, setUserMode] = useState('TRAVELER');
+
+
   // filters
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -61,6 +65,19 @@ function ExplorePage() {
     loadSaved();
   }, []);
 
+  
+  useEffect(() => {
+    const storedUser = localStorage.getItem("ttg_user");
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUserRole(parsedUser.role || 'TRAVELER');
+        setUserMode(parsedUser.mode || parsedUser.role || 'TRAVELER');
+      } catch (e) {}
+    }
+  }, []);
+  
+
   /* ---------- filtering: area -> type -> search ---------- */
 
   const filteredBase = useMemo(() => {
@@ -108,6 +125,10 @@ function ExplorePage() {
   /* ---------- save / unsave ---------- */
 
   const toggleSave = async (placeId) => {
+    if (userRole === 'MERCHANT' && userMode !== 'TRAVELER') {
+      alert("Switch to traveler mode to save places");
+      return;
+    }
     try {
       const token = localStorage.getItem("userToken") || "";
       const isSaved = savedIds.includes(placeId);
@@ -308,10 +329,20 @@ function ExplorePage() {
 
   /* ---------- main render ---------- */
 
+  
   return (
     <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
       <div className="dashboard-card" style={{ maxWidth: 900, width: "100%" }}>
         <h2 className="text-2xl font-bold text-gray-800">Explore</h2>
+
+        <h2 className="text-2xl font-bold text-gray-800">Explore</h2>
+
+{/* ADD THIS WARNING - EXACTLY like Community */}
+{userRole === 'MERCHANT' && userMode !== 'TRAVELER' && (
+  <p style={{ fontSize: "0.85rem", color: "#6b7280", marginBottom: "1rem" }}>
+    Switch to traveler mode to save places.
+  </p>
+)}
 
         {/* filters row */}
         <div
