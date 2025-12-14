@@ -21,9 +21,9 @@ const CATEGORY_OPTIONS = [
 ];
 
 function CommunityFeed() {
-  const { parsed: parsedUser, mode } = getAuthMode();
+  const { parsed: parsedUser, role: userRole, mode: userMode } = getAuthMode();
   const isLoggedIn = !!parsedUser;
-  const isTravelerMode = isLoggedIn && mode === "TRAVELER";
+  const isTravelerMode = isLoggedIn && userMode === "TRAVELER";
   const token = parsedUser?.token || parsedUser?.username || "";
 
   const [posts, setPosts] = useState([]);
@@ -78,17 +78,17 @@ function CommunityFeed() {
   }, [category, areaId]);
 
   // Like / dislike
-  const handleLikeDislike = async (postId, reaction) => {
-    try {
-      if (!isLoggedIn) {
-        alert("You must log in to react.");
-        return;
+  const handleReact = async (postId, reaction) => {
+    if ((userRole === 'MERCHANT' || userRole === 'ADMIN') && userMode !== 'TRAVELER') {
+      if (userRole === 'ADMIN') {
+        alert("Admins cannot react to posts. Only travelers can react.");
+      } else {
+        alert("Switch to traveler mode from your merchant dashboard to react");
       }
-      if (!isTravelerMode) {
-        alert("Switch to traveler mode to react.");
-        return;
-      }
+      return;
+    }
 
+    try {
       const resp = await fetch(
         `http://127.0.0.1:8000/api/community/posts/${postId}/react/`,
         {
@@ -96,7 +96,7 @@ function CommunityFeed() {
           headers: {
             "Content-Type": "application/json",
             "X-User-Token": token,
-            "X-User-Mode": mode,
+            "X-User-Mode": userMode,
           },
           body: JSON.stringify({ reaction }),
         }
@@ -320,6 +320,12 @@ function CommunityFeed() {
         <div className="community-container">
           <div className="feed-header">
             <h2>Community Feed</h2>
+            {(userRole === 'MERCHANT' || userRole === 'ADMIN') && userMode !== 'TRAVELER' && (
+  <p style={{ fontSize: "0.85rem", color: "#6b7280", marginBottom: "1rem" }}>
+    {userRole === 'ADMIN' ? "Admins cannot post/react" : "Switch to traveler mode to post/react"}
+  </p>
+)}
+
             <p>Stay updated with the latest from Dhaka&apos;s community</p>
           </div>
 
@@ -357,10 +363,11 @@ function CommunityFeed() {
                   alert("You must log in to create posts.");
                   return;
                 }
-                if (!isTravelerMode) {
-                  alert("Switch to traveler mode to create posts.");
-                  return;
-                }
+                const { role } = getAuthMode();
+  if ((role === 'MERCHANT' || role === 'ADMIN') && !isTravelerMode) {
+    alert(role === 'ADMIN' ? "Admins cannot create posts. Only travelers can post." : "Switch to traveler mode from your merchant dashboard to create posts.");
+    return;
+  }
                 setShowNewPost((p) => !p);
               }}
             >
@@ -371,7 +378,7 @@ function CommunityFeed() {
           {showNewPost && (
             <NewPostForm
               token={token}
-              mode={mode}
+              mode={userMode}
               isLoggedIn={isLoggedIn}
               isTravelerMode={isTravelerMode}
               areas={areas}
@@ -394,8 +401,8 @@ function CommunityFeed() {
                 key={p.id}
                 post={p}
                 onOpen={() => openPostDetail(p.id)}
-                onReact={handleLikeDislike}
-              />
+                onReact={handleReact}
+                />
             ))
           )}
 
@@ -403,11 +410,11 @@ function CommunityFeed() {
             <PostDetailModal
               post={selectedPost}
               token={token}
-              mode={mode}
+              mode={userMode}
               isLoggedIn={isLoggedIn}
               isTravelerMode={isTravelerMode}
               onClose={() => setSelectedPost(null)}
-              onReact={handleLikeDislike}
+              onReact={handleReact}
               onUpdate={setSelectedPost}
             />
           )}
@@ -415,7 +422,9 @@ function CommunityFeed() {
       </div>
     </div>
   );
+
 }
+
 
 /* ---------- components ---------- */
 
@@ -506,8 +515,9 @@ function NewPostForm({
       setError("You must log in to create posts.");
       return;
     }
-    if (!isTravelerMode) {
-      setError("Switch to traveler mode to create posts.");
+    const { role } = getAuthMode();
+    if ((role === 'MERCHANT' || role === 'ADMIN') && mode !== 'TRAVELER') {
+      setError(role === 'ADMIN' ? "Admins cannot create posts. Only travelers can post." : "Switch to traveler mode to create posts.");
       return;
     }
     if (!areaId) {
@@ -638,8 +648,9 @@ function PostDetailModal({
       alert("You must log in to comment.");
       return;
     }
-    if (!isTravelerMode) {
-      alert("Switch to traveler mode to comment.");
+    const { role } = getAuthMode();
+    if ((role === 'MERCHANT' || role === 'ADMIN') && mode !== 'TRAVELER') {
+      alert(role === 'ADMIN' ? "Admins cannot comment on posts. Only travelers can comment." : "Switch to traveler mode from your merchant dashboard to comment.");
       return;
     }
     if (!commentText.trim()) return;
@@ -692,6 +703,8 @@ function PostDetailModal({
       document.body.style.overflow = "auto";
     };
   }, []);
+
+  
 
   return (
     <>

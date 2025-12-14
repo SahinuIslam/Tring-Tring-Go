@@ -125,10 +125,15 @@ function ExplorePage() {
   /* ---------- save / unsave ---------- */
 
   const toggleSave = async (placeId) => {
-    if (userRole === 'MERCHANT' && userMode !== 'TRAVELER') {
-      alert("Switch to traveler mode to save places");
+    if ((userRole === 'MERCHANT' || userRole === 'ADMIN') && userMode !== 'TRAVELER') {
+      if (userRole === 'ADMIN') {
+        alert("Admins cannot save places (traveler role required)");
+      } else {
+        alert("Switch to traveler mode from your merchant dashboard to save places.");
+      }
       return;
     }
+    
     try {
       const token = localStorage.getItem("userToken") || "";
       const isSaved = savedIds.includes(placeId);
@@ -333,16 +338,16 @@ function ExplorePage() {
   return (
     <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
       <div className="dashboard-card" style={{ maxWidth: 900, width: "100%" }}>
-        <h2 className="text-2xl font-bold text-gray-800">Explore</h2>
-
-        <h2 className="text-2xl font-bold text-gray-800">Explore</h2>
-
-{/* ADD THIS WARNING - EXACTLY like Community */}
-{userRole === 'MERCHANT' && userMode !== 'TRAVELER' && (
+<h2 className="text-2xl font-bold text-gray-800">Explore</h2>
+{(userRole === 'MERCHANT' || userRole === 'ADMIN') && userMode !== 'TRAVELER' && (
   <p style={{ fontSize: "0.85rem", color: "#6b7280", marginBottom: "1rem" }}>
-    Switch to traveler mode to save places.
+    {userRole === 'ADMIN' 
+      ? "Admins cannot save places (traveler role required)" 
+      : "Switch to traveler mode to save places"
+    }
   </p>
 )}
+
 
         {/* filters row */}
         <div
