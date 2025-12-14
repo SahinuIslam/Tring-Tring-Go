@@ -129,7 +129,7 @@ function TravelerDashboard() {
         // My reviews
         setReviewsLoading(true);
         const reviewsResp = await fetch(
-          "http://127.0.0.1:8000/api/travel/my-reviews/",
+          "http://127.0.0.1:8000/api/travel/reviews/",
           {
             method: "GET",
             headers: token ? { "X-User-Token": token } : {},
