@@ -1,3 +1,4 @@
+import { Outlet } from "react-router-dom"; //unified topbar for all pages
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import ChatPanel from "./ChatPanel";
@@ -66,18 +67,30 @@ function Layout({ children }) {
           >
             Settings
           </Link>
-          <Link
-            className={
-              isActive("/traveler") ||
-              isActive("/merchant") ||
-              isActive("/admin")
-                ? "nav-link active"
-                : "nav-link"
-            }
-            to="/traveler"
-          >
-            Dashboard
-          </Link>
+          {/* REPLACE your single Dashboard link with: */}
+{parsed?.mode === "MERCHANT" ? (
+  <Link
+    className={isActive("/merchant") ? "nav-link active" : "nav-link"}
+    to="/merchant"
+  >
+    Dashboard
+  </Link>
+) : parsed?.mode === "ADMIN" ? (
+  <Link
+    className={isActive("/admin") ? "nav-link active" : "nav-link"}
+    to="/admin"
+  >
+    Dashboard
+  </Link>
+) : (
+  <Link
+    className={isActive("/traveler") ? "nav-link active" : "nav-link"}
+    to="/traveler"
+  >
+    Dashboard
+  </Link>
+)}
+
 
           {isLoggedIn ? (
             <>
@@ -117,7 +130,9 @@ function Layout({ children }) {
         </nav>
       </header>
 
-      <main className="main-content">{children}</main>
+      <main className="main-content">
+      <Outlet /> 
+        </main>
 
       {isLoggedIn && isChatOpen && (
         <ChatPanel onClose={() => setIsChatOpen(false)} />

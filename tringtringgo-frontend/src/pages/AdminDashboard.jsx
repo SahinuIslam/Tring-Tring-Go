@@ -1,63 +1,6 @@
 // src/AdminDashboard.jsx
 import React, { useEffect, useState } from "react";
 
-function TopBar() {
-  async function handleLogout() {
-    try {
-      await fetch("http://127.0.0.1:8000/api/accounts/logout/", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (e) {
-      console.error("Logout API error (ignored):", e);
-    }
-    localStorage.removeItem("ttg_user");
-    window.location.href = "/login";
-  }
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: "1rem",
-        borderBottom: "1px solid #e5e7eb",
-        paddingBottom: "1rem",
-      }}
-    >
-      <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1f2937" }}>
-        TringTringGo
-      </div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "1rem",
-          fontSize: "0.95rem",
-          color: "#4b5563",
-        }}
-      >
-        <button
-          type="button"
-          onClick={handleLogout}
-          style={{
-            border: "none",
-            borderRadius: "999px",
-            padding: "0.4rem 0.9rem",
-            background: "#ef4444",
-            color: "white",
-            fontSize: "0.85rem",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Log out
-        </button>
-      </div>
-    </div>
-  );
-}
 
 function AdminDashboard() {
   const [data, setData] = useState(null);
@@ -277,7 +220,6 @@ function AdminDashboard() {
     return (
       <div className="dashboard-page">
         <div className="dashboard-card">
-          <TopBar />
           <h2>Admin Dashboard</h2>
           <p>Loading...</p>
         </div>
@@ -289,7 +231,6 @@ function AdminDashboard() {
     return (
       <div className="dashboard-page">
         <div className="dashboard-card">
-          <TopBar />
           <h2>Admin Dashboard</h2>
           <p style={{ color: "#b91c1c" }}>{error || "No data"}</p>
         </div>
@@ -374,7 +315,6 @@ function AdminDashboard() {
       `}</style>
 
       <div className="dashboard-card">
-        <TopBar />
 
         <h2 className="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
         <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>

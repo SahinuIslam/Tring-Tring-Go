@@ -1,3 +1,4 @@
+/*
 import React from "react";
 
 function TopBar() {
@@ -9,3 +10,4 @@ function TopBar() {
 }
 
 export default TopBar;
+*/

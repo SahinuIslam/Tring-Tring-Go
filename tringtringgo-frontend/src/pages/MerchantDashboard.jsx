@@ -1,126 +1,7 @@
 // src/pages/MerchantDashboard.jsx
 import React, { useEffect, useState } from "react";
 
-/* ---------- TopBar ---------- */
 
-function TopBar() {
-  async function handleLogout() {
-    try {
-      await fetch("http://127.0.0.1:8000/api/accounts/logout/", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (e) {
-      console.error("Logout API error (ignored):", e);
-    }
-    localStorage.removeItem("ttg_user");
-    window.location.href = "/login";
-  }
-
-  const path = window.location.pathname;
-  const stored = localStorage.getItem("ttg_user");
-  const parsed = stored ? JSON.parse(stored) : null;
-  const mode = parsed?.mode || parsed?.role || "TRAVELER";
-
-  const dashboardHref =
-    mode === "MERCHANT"
-      ? "/merchant"
-      : mode === "ADMIN"
-      ? "/admin"
-      : "/traveler";
-
-  const isActive = (name) => {
-    if (name === "home") return path === "/" || path === "/home";
-    if (name === "explore") return path.startsWith("/explore");
-    if (name === "community") return path.startsWith("/community");
-    if (name === "services") return path.startsWith("/services");
-    if (name === "dashboard")
-      return (
-        path.startsWith("/traveler") ||
-        path.startsWith("/merchant") ||
-        path.startsWith("/admin") ||
-        path.startsWith("/dashboard")
-      );
-    return false;
-  };
-
-  const linkStyle = (name) => ({
-    textDecoration: "none",
-    fontSize: "0.95rem",
-    color: isActive(name) ? "#1f2937" : "#4b5563",
-    fontWeight: isActive(name) ? 700 : 500,
-    borderBottom: isActive(name)
-      ? "2px solid #1f2937"
-      : "2px solid transparent",
-    paddingBottom: "0.1rem",
-  });
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: "1rem",
-        borderBottom: "1px solid #e5e7eb",
-        paddingBottom: "1rem",
-        paddingTop: "0.5rem",
-        paddingInline: "1rem",
-        flexWrap: "wrap",
-        gap: "0.75rem",
-      }}
-    >
-      <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1f2937" }}>
-        TringTringGo
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "1.25rem",
-          fontSize: "0.95rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <nav style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
-          <a href="/home" style={linkStyle("home")}>
-            Home
-          </a>
-          <a href="/explore" style={linkStyle("explore")}>
-            Explore
-          </a>
-          <a href="/community" style={linkStyle("community")}>
-            Community
-          </a>
-          <a href="/services" style={linkStyle("services")}>
-            Services
-          </a>
-          <a href={dashboardHref} style={linkStyle("dashboard")}>
-            Dashboard
-          </a>
-        </nav>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-          style={{
-            border: "none",
-            borderRadius: "999px",
-            padding: "0.4rem 0.9rem",
-            background: "#ef4444",
-            color: "white",
-            fontSize: "0.85rem",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          Log out
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /* ---------- helpers ---------- */
 
@@ -374,7 +255,6 @@ function MerchantDashboard() {
     return (
       <div className="dashboard-page">
         <div className="dashboard-card">
-          <TopBar />
           <h2>Merchant Dashboard</h2>
           <p>Loading your data...</p>
         </div>
@@ -386,7 +266,6 @@ function MerchantDashboard() {
     return (
       <div className="dashboard-page">
         <div className="dashboard-card">
-          <TopBar />
           <h2>Merchant Dashboard</h2>
           <p style={{ color: "#b91c1c" }}>{error || "No data"}</p>
         </div>
@@ -460,7 +339,6 @@ function MerchantDashboard() {
       `}</style>
 
       <div className="dashboard-card">
-        <TopBar />
 
         {parsedUser && realRole === "MERCHANT" && mode !== "TRAVELER" && (
           <button

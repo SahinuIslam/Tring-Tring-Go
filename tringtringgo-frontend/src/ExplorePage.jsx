@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useMemo } from "react";
-import TopBar from "./TopBar";
 
 function ExplorePage() {
   const [places, setPlaces] = useState([]);
@@ -289,7 +288,6 @@ function ExplorePage() {
     return (
       <div className="dashboard-page">
         <div className="dashboard-card">
-          <TopBar />
           <h2>Explore</h2>
           <p>Loading recommendations...</p>
         </div>
@@ -301,7 +299,6 @@ function ExplorePage() {
     return (
       <div className="dashboard-page">
         <div className="dashboard-card">
-          <TopBar />
           <h2>Explore</h2>
           <p style={{ color: "#b91c1c" }}>Error: {placesError}</p>
         </div>
@@ -314,7 +311,6 @@ function ExplorePage() {
   return (
     <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
       <div className="dashboard-card" style={{ maxWidth: 900, width: "100%" }}>
-        <TopBar />
         <h2 className="text-2xl font-bold text-gray-800">Explore</h2>
 
         {/* filters row */}

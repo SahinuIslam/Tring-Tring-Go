@@ -33,7 +33,6 @@ import Home from "./home";
 
 import SettingsPage from "./SettingsPage";
 
-
 function App() {
   return (
     <Router>
@@ -45,29 +44,22 @@ function App() {
         {/* default: go to home */}
         <Route path="/" element={<Navigate to="/home" replace />} />
 
-        {/* everything else WITH layout (has top bar + ChatPanel) */}
-        <Route
-          path="/*"
-          element={
-            <Layout>
-              <Routes>
-                {/* home and main pages under Layout */}
-                <Route path="/home" element={<Home />} />
-                <Route path="/explore" element={<ExplorePage />} />
-                <Route path="/community" element={<CommunityFeed />} />
-                <Route path="/services" element={<Services />} />
+        {/* ✅ CORRECT: Layout WRAPS all main pages */}
+        <Route element={<Layout />}>
+          {/* home and main pages under Layout */}
+          <Route path="/home" element={<Home />} />
+          <Route path="/explore" element={<ExplorePage />} />
+          <Route path="/community" element={<CommunityFeed />} />
+          <Route path="/services" element={<Services />} />
 
-                {/* dashboards */}
-                <Route path="/traveler" element={<TravelerDashboard />} />
-                <Route path="/merchant" element={<MerchantDashboard />} />
-                <Route path="/admin" element={<AdminDashboard />} />
-                {/* settings page */}
-                <Route path="/settings" element={<SettingsPage />} />
+          {/* dashboards */}
+          <Route path="/traveler" element={<TravelerDashboard />} />
+          <Route path="/merchant" element={<MerchantDashboard />} />
+          <Route path="/admin" element={<AdminDashboard />} />
 
-              </Routes>
-            </Layout>
-          }
-        />
+          {/* settings page */}
+          <Route path="/settings" element={<SettingsPage />} />
+        </Route>
       </Routes>
 
       {/* floating AI chatbot widget, always available */}
