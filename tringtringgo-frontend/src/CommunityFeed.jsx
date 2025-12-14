@@ -363,11 +363,10 @@ function CommunityFeed() {
                   alert("You must log in to create posts.");
                   return;
                 }
-                const { role } = getAuthMode();
-  if ((role === 'MERCHANT' || role === 'ADMIN') && !isTravelerMode) {
-    alert(role === 'ADMIN' ? "Admins cannot create posts. Only travelers can post." : "Switch to traveler mode from your merchant dashboard to create posts.");
-    return;
-  }
+                if ((userRole === 'MERCHANT' || userRole === 'ADMIN') && userMode !== 'TRAVELER') {
+                  alert(userRole === 'ADMIN' ? "Admins cannot create posts. Only travelers can post." : "Switch to traveler mode from your merchant dashboard to create posts.");
+                  return;
+                }
                 setShowNewPost((p) => !p);
               }}
             >
@@ -515,6 +514,7 @@ function NewPostForm({
       setError("You must log in to create posts.");
       return;
     }
+    // Check if user is a merchant/admin and NOT in traveler mode
     const { role } = getAuthMode();
     if ((role === 'MERCHANT' || role === 'ADMIN') && mode !== 'TRAVELER') {
       setError(role === 'ADMIN' ? "Admins cannot create posts. Only travelers can post." : "Switch to traveler mode to create posts.");

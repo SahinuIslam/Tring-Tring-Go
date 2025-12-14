@@ -40,5 +40,5 @@ urlpatterns = [
     path("users/search/", UserSearchView.as_view(), name="user-search"),
     path("settings/", user_settings_view, name="user-settings"),
     path("delete-account/", delete_account_view, name="delete-account"),
-    path("update-profile/", update_profile_view, name="update-profile"),
+    path("profile/", update_profile_view, name="update-profile"),
 ]
