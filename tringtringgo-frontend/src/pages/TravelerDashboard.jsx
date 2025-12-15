@@ -427,16 +427,30 @@ function TravelerDashboard() {
     );
   }
 
-  if (error) {
+  if (error && error.includes("Not logged in")) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <h2>🧳 Traveler Dashboard</h2>
-          <p style={{ color: "#b91c1c", fontWeight: "bold" }}>Error: {error}</p>
+      <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
+        <div className="dashboard-card" style={{
+          textAlign: 'center', padding: '4rem 2rem', maxWidth: '500px'
+        }}>
+          <div style={{fontSize: '4rem', marginBottom: '1rem'}}></div>
+          <h2 style={{fontSize: '2rem', marginBottom: '1rem'}}>Welcome to TringTringGo!</h2>
+          <p style={{fontSize: '1.1rem', color: '#666', marginBottom: '2rem'}}>
+            Log in to access your personalized dashboard.
+          </p>
+          <a href="/login" className="primary-btn" style={{
+            padding: '1rem 2rem', fontSize: '1.1rem', display: 'inline-block'
+          }}>
+            Log In to Continue
+          </a>
+          <p style={{marginTop: '2rem', color: '#9ca3af', fontSize: '0.9rem'}}>
+            New here? <a href="/signup" style={{color: '#3b82f6'}}>Sign up</a>
+          </p>
         </div>
       </div>
     );
   }
+  
 
   if (!data) {
     return (
