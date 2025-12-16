@@ -394,7 +394,7 @@ function TravelerDashboard() {
                         Area
                       </div>
                       <div className="fw-bold text-dark">
-                        {profile.area || "Not set"}
+                        {profile.area || "Area Not set"}
                       </div>
                     </div>
                   </div>
@@ -527,7 +527,7 @@ function TravelerDashboard() {
                         Area
                       </dt>
                       <dd className="col-7">
-                        {profile.area || "Not set"}
+                        {profile.area || "Area Not set"}
                       </dd>
 
                       <dt

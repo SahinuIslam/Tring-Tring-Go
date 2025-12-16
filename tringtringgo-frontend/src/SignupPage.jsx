@@ -53,7 +53,6 @@ function SignupPage() {
     setMessage("");
     setErrors(null);
 
-    // frontend guard: admin must have >= 3 years in area
     if (formData.role === "ADMIN") {
       const years = parseInt(formData.years_in_area || "0", 10);
       if (Number.isNaN(years) || years < 3) {
@@ -139,11 +138,30 @@ function SignupPage() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-      await user.getIdToken();
-      setMessage(`Google signup success: ${user.email}`);
+
+      const idToken = await user.getIdToken();
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/accounts/google-login/",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_token: idToken }),
+        }
+      );
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || "Google auth failed");
+      }
+
+      const data = await response.json();
+      setMessage(data.message || "Google auth successful!");
+
+      navigate("/traveler");
     } catch (err) {
-      console.error(err);
-      setErrors({ detail: "Google login failed." });
+      console.error("Google auth error:", err);
+      setErrors({ detail: err.message || "Google auth failed." });
     } finally {
       setLoading(false);
     }

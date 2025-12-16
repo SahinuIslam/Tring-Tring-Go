@@ -12,13 +12,12 @@ function SettingsPage() {
   const token = parsed?.token || parsed?.username || "";
   const role = parsed?.role || parsed?.mode || "TRAVELER";
 
-  // global theme state for this page
   const [theme, setTheme] = useState(getInitialTheme);
   const isDark = theme === "dark";
 
   const [settings, setSettings] = useState({
     show_public_username: true,
-    theme: getInitialTheme(), // start from global
+    theme: getInitialTheme(),
   });
 
   const [profileForm, setProfileForm] = useState({
@@ -39,12 +38,10 @@ function SettingsPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // keep localStorage in sync when theme state changes
   useEffect(() => {
     localStorage.setItem("ttg_theme", theme);
   }, [theme]);
 
-  // load settings, including theme
   useEffect(() => {
     if (!token) {
       setLoading(false);
@@ -109,7 +106,7 @@ function SettingsPage() {
       const data = await resp.json();
       setSettings(data);
       if (data.theme === "dark" || data.theme === "light") {
-        setTheme(data.theme); // update page theme immediately
+        setTheme(data.theme);
         localStorage.setItem("ttg_theme", data.theme);
       }
       setMessage("Settings saved.");
@@ -183,11 +180,7 @@ function SettingsPage() {
       };
       localStorage.setItem("ttg_user", JSON.stringify(updated));
 
-      setMessage(
-        profileForm.new_password
-          ? "Profile updated. Please log in again with your new credentials."
-          : "Profile updated."
-      );
+      setMessage("Profile updated.");
 
       setProfileForm((prev) => ({
         ...prev,
@@ -198,14 +191,6 @@ function SettingsPage() {
       setShowPasswordSection(false);
       setEditingUsername(false);
       setEditingEmail(false);
-
-      if (profileForm.new_password || data.token !== token) {
-        localStorage.removeItem("ttg_user");
-        localStorage.removeItem("userToken");
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 1000);
-      }
     } catch (e) {
       console.error(e);
       setError(e.message);

@@ -19,15 +19,13 @@ function LoginPage() {
     const ttgUser = {
       username: data.username || data.email || "",
       email: data.email || "",
-      role: data.role, // real backend role
-      mode: data.role, // start in same mode as role
+      role: data.role,
+      mode: data.role,
       token: data.token || data.username || data.email || "",
     };
 
-    // original storage
     localStorage.setItem("ttg_user", JSON.stringify(ttgUser));
 
-    // NEW: simple token for chat (username)
     if (ttgUser.username) {
       localStorage.setItem("userToken", ttgUser.username);
     }
@@ -216,7 +214,7 @@ function LoginPage() {
         </form>
 
         <p className="auth-footer">
-          Don’t have an account? <Link to="/signup">Sign up</Link>
+          Don't have an account? <Link to="/signup">Sign up</Link>
         </p>
       </div>
 

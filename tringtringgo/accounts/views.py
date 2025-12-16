@@ -75,11 +75,14 @@ class GoogleLoginAPIView(APIView):
 
         try:
             decoded = firebase_auth.verify_id_token(id_token)
-        except Exception:
+            print("DECODED TOKEN:", decoded)
+        except Exception as e:
+            print("FIREBASE VERIFY ERROR:", repr(e))
             return Response(
                 {"detail": "Invalid token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
 
         uid = decoded["uid"]
         email = decoded.get("email")
