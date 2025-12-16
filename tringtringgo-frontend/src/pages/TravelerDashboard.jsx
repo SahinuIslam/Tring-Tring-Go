@@ -1,7 +1,9 @@
+// src/pages/TravelerDashboard.jsx
 import React, { useEffect, useState } from "react";
 
-// Top navigation bar
-export function TopBar() {
+/* ---------- TopBar (no theme toggle, follows theme) ---------- */
+
+function TopBar({ isDark }) {
   async function handleLogout() {
     try {
       await fetch("http://127.0.0.1:8000/api/accounts/logout/", {
@@ -16,7 +18,6 @@ export function TopBar() {
   }
 
   const path = window.location.pathname;
-
   const stored = localStorage.getItem("ttg_user");
   const parsed = stored ? JSON.parse(stored) : null;
   const mode = parsed?.mode || parsed?.role || "TRAVELER";
@@ -43,181 +44,159 @@ export function TopBar() {
     return false;
   };
 
-  const linkStyle = (name) => ({
-    textDecoration: "none",
-    fontSize: "0.95rem",
-    color: isActive(name) ? "#1f2937" : "#4b5563",
-    fontWeight: isActive(name) ? 700 : 500,
-    borderBottom: isActive(name)
-      ? "2px solid #1f2937"
-      : "2px solid transparent",
-    paddingBottom: "0.1rem",
-  });
+  const linkClass = (name) =>
+    "nav-link px-3 py-1 rounded-pill" +
+    (isActive(name)
+      ? " fw-semibold text-white bg-primary"
+      : isDark
+      ? " text-light"
+      : " text-secondary");
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: "1rem",
-        borderBottom: "1px solid #e5e7eb",
-        paddingBottom: "1rem",
-        paddingTop: "0.5rem",
-        paddingInline: "1rem",
-        flexWrap: "wrap",
-        gap: "0.75rem",
-      }}
+    <nav
+      className={
+        "navbar navbar-expand-lg mb-3 topbar-bordered " +
+        (isDark ? "navbar-dark" : "navbar-light")
+      }
     >
-      <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1f2937" }}>
-        TringTringGo
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "1.25rem",
-          fontSize: "0.95rem",
-          flexWrap: "wrap",
-        }}
-      >
-        <nav style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
-  <a href="/home" style={linkStyle("home")}>
-    Home
-  </a>
-  <a href="/explore" style={linkStyle("explore")}>
-    Explore
-  </a>
-  <a href="/community" style={linkStyle("community")}>
-    Community
-  </a>
-  <a href="/services" style={linkStyle("services")}>
-    Services
-  </a>
-  <a href={dashboardHref} style={linkStyle("dashboard")}>
-    Dashboard
-  </a>
-
-  {/* New Chat item – uses the floating ChatWidget already in App.js */}
-  <button
-    type="button"
-    onClick={() =>
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      })
-    }
-    style={{
-      border: "none",
-      background: "transparent",
-      fontSize: "0.95rem",
-      color: "#2563eb",
-      fontWeight: 600,
-      cursor: "pointer",
-      padding: 0,
-    }}
-  >
-    Chat
-  </button>
-</nav>
-
+      <div className="container-fluid">
+        <span
+          className={
+            "navbar-brand brand-glow " +
+            (isDark ? "brand-glow-dark" : "brand-glow-light")
+          }
+        >
+          TringTringGo
+        </span>
 
         <button
+          className="navbar-toggler"
           type="button"
-          onClick={handleLogout}
-          style={{
-            border: "none",
-            borderRadius: "999px",
-            padding: "0.4rem 0.9rem",
-            background: "#ef4444",
-            color: "white",
-            fontSize: "0.85rem",
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
+          data-bs-toggle="collapse"
+          data-bs-target="#travelerTopbarNav"
         >
-          Log out
+          <span className="navbar-toggler-icon" />
         </button>
+
+        <div className="collapse navbar-collapse" id="travelerTopbarNav">
+          <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
+            <li className="nav-item">
+              <a href="/home" className={linkClass("home")}>
+                Home
+              </a>
+            </li>
+            <li className="nav-item">
+              <a href="/explore" className={linkClass("explore")}>
+                Explore
+              </a>
+            </li>
+            <li className="nav-item">
+              <a href="/community" className={linkClass("community")}>
+                Community
+              </a>
+            </li>
+            <li className="nav-item">
+              <a href="/services" className={linkClass("services")}>
+                Services
+              </a>
+            </li>
+            <li className="nav-item">
+              <a href={dashboardHref} className={linkClass("dashboard")}>
+                Dashboard
+              </a>
+            </li>
+          </ul>
+
+          <div className="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-danger rounded-pill"
+              onClick={handleLogout}
+            >
+              <i className="bi bi-box-arrow-right me-1" />
+              Log out
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
+    </nav>
   );
 }
 
+/* ---------- helpers ---------- */
+
+function formatDateTime(isoString) {
+  if (!isoString) return "";
+  const d = new Date(isoString);
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/* ---------- TravelerDashboard ---------- */
+
 function TravelerDashboard() {
-  // read real role and mode
   const storedUser = localStorage.getItem("ttg_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const realRole = parsedUser?.role || "TRAVELER";
   const mode = parsedUser?.mode || realRole;
+  const token = parsedUser?.token || parsedUser?.username || "";
   const isLoggedIn = !!parsedUser;
   const isTravelerMode = isLoggedIn && mode === "TRAVELER";
 
-  // Dashboard data
+  // global theme from Settings
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    return stored === "dark" || stored === "light" ? stored : "light";
+  });
+  const isDark = theme === "dark";
+
+  useEffect(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    if (stored === "dark" || stored === "light") {
+      setTheme(stored);
+    }
+  }, []);
+
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Profile edit
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ area_id: "", years_in_area: "" });
-  const [message, setMessage] = useState("");
-  const [showEditProfile, setShowEditProfile] = useState(false);
   const [areas, setAreas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [areasLoading, setAreasLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
 
-  // Saved places
+  const [saving, setSaving] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [form, setForm] = useState({ area_id: "", years_in_area: "" });
+
   const [savedPlaces, setSavedPlaces] = useState([]);
   const [savedLoading, setSavedLoading] = useState(true);
   const [savedError, setSavedError] = useState(null);
 
-  // My Reviews
+  // my reviews (read‑only)
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsError, setReviewsError] = useState(null);
-  const [newReview, setNewReview] = useState({
-    place: "",
-    rating: 5,
-    title: "",
-    text: "",
-  });
-  const [reviewSaving, setReviewSaving] = useState(false);
-
-  // Edit existing review
-  const [editingReviewId, setEditingReviewId] = useState(null);
-  const [editingReviewData, setEditingReviewData] = useState({
-    rating: 5,
-    title: "",
-    text: "",
-  });
-
-  // All places for review dropdown
-  const [allPlaces, setAllPlaces] = useState([]);
-  const [allPlacesLoading, setAllPlacesLoading] = useState(true);
-  const [allPlacesError, setAllPlacesError] = useState(null);
-
-  function formatDateTime(isoString) {
-    if (!isoString) return "";
-    const d = new Date(isoString);
-    return d.toLocaleString("en-GB", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadData() {
       try {
+        if (!isLoggedIn) {
+          setLoading(false);
+          setError("You must log in as a traveler to view this dashboard.");
+          return;
+        }
         setLoading(true);
-        setError(null);
+        setError("");
+        setMessage("");
 
-        const stored = localStorage.getItem("ttg_user");
-        const parsed = stored ? JSON.parse(stored) : null;
-        const token = parsed?.token || parsed?.username || "";
-
-        // Dashboard
+        // traveler dashboard
         const dashResp = await fetch(
           "http://127.0.0.1:8000/api/accounts/dashboard/traveler/",
           {
@@ -225,20 +204,22 @@ function TravelerDashboard() {
             headers: token ? { "X-User-Token": token } : {},
           }
         );
-
+        const dashData = await dashResp.json().catch(() => ({}));
         if (!dashResp.ok) {
-          const errData = await dashResp.json().catch(() => ({}));
-          throw new Error(errData.detail || "Failed to load dashboard");
+          throw new Error(
+            dashData.detail || "Failed to load traveler dashboard"
+          );
         }
 
-        const dashData = await dashResp.json();
+        if (cancelled) return;
+
         setData(dashData);
         setForm({
           area_id: "",
           years_in_area: dashData.profile.years_in_area || "",
         });
 
-        // Saved places
+        // saved places
         setSavedLoading(true);
         const savedResp = await fetch(
           "http://127.0.0.1:8000/api/travel/saved-places/",
@@ -256,21 +237,7 @@ function TravelerDashboard() {
           setSavedError(null);
         }
 
-        // All places
-        setAllPlacesLoading(true);
-        const placesResp = await fetch(
-          "http://127.0.0.1:8000/api/travel/places/"
-        );
-        if (!placesResp.ok) {
-          const errData = await placesResp.json().catch(() => ({}));
-          setAllPlacesError(errData.detail || "Failed to load places");
-        } else {
-          const placesData = await placesResp.json();
-          setAllPlaces(placesData);
-          setAllPlacesError(null);
-        }
-
-        // My reviews
+        // my reviews (read‑only)
         setReviewsLoading(true);
         const reviewsResp = await fetch(
           "http://127.0.0.1:8000/api/travel/my-reviews/",
@@ -288,27 +255,35 @@ function TravelerDashboard() {
           setReviewsError(null);
         }
 
-        // Areas
+        // areas
+        setAreasLoading(true);
         const areasResp = await fetch("http://127.0.0.1:8000/api/travel/areas/");
         if (areasResp.ok) {
           const areasData = await areasResp.json();
-          setAreas(areasData);
+          if (!cancelled) setAreas(areasData);
         }
       } catch (err) {
-        console.error("Dashboard Load Error:", err);
-        setError(err.message);
+        if (!cancelled) {
+          console.error(err);
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
-        setSavedLoading(false);
-        setReviewsLoading(false);
-        setAllPlacesLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          setSavedLoading(false);
+          setReviewsLoading(false);
+          setAreasLoading(false);
+        }
       }
     }
 
     loadData();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, token]);
 
-  function handleChange(e) {
+  function handleProfileChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   }
@@ -316,15 +291,11 @@ function TravelerDashboard() {
   async function handleSaveProfile(e) {
     e.preventDefault();
     setSaving(true);
-    setError(null);
+    setError("");
     setMessage("");
 
     try {
-      const stored = localStorage.getItem("ttg_user");
-      const parsed = stored ? JSON.parse(stored) : null;
-      const token = parsed?.token || parsed?.username || "";
-
-      if (!token) {
+      if (!isLoggedIn) {
         throw new Error("You must log in to update your profile.");
       }
 
@@ -343,7 +314,7 @@ function TravelerDashboard() {
         }
       );
 
-      const body = await resp.json();
+      const body = await resp.json().catch(() => ({}));
 
       if (!resp.ok) {
         throw new Error(body.detail || "Failed to update profile");
@@ -357,10 +328,10 @@ function TravelerDashboard() {
           profile_complete: body.profile_complete,
         },
       }));
-      setMessage("Profile updated successfully!");
+      setMessage("Profile updated successfully.");
       setShowEditProfile(false);
     } catch (err) {
-      console.error("Profile Save Error:", err);
+      console.error(err);
       setError(err.message);
     } finally {
       setSaving(false);
@@ -378,10 +349,6 @@ function TravelerDashboard() {
     }
 
     try {
-      const stored = localStorage.getItem("ttg_user");
-      const parsed = stored ? JSON.parse(stored) : null;
-      const token = parsed?.token || parsed?.username || "";
-
       const resp = await fetch(
         `http://127.0.0.1:8000/api/travel/saved-places/${id}/`,
         {
@@ -402,195 +369,48 @@ function TravelerDashboard() {
     }
   }
 
-  function handleNewReviewChange(e) {
-    const { name, value } = e.target;
-    setNewReview((prev) => ({ ...prev, [name]: value }));
-  }
-
-  async function handleCreateReview(e) {
-    e.preventDefault();
-    if (!isLoggedIn) {
-      setReviewsError("You must log in to write reviews.");
-      return;
-    }
-    if (!isTravelerMode) {
-      setReviewsError("Switch to traveler mode to write reviews.");
-      return;
-    }
-
-    setReviewSaving(true);
-    setReviewsError(null);
-
-    try {
-      const stored = localStorage.getItem("ttg_user");
-      const parsed = stored ? JSON.parse(stored) : null;
-      const token = parsed?.token || parsed?.username || "";
-
-      if (!token) {
-        throw new Error("You must log in to write reviews.");
-      }
-
-      const resp = await fetch("http://127.0.0.1:8000/api/travel/reviews/create/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Token": token,
-        },
-        body: JSON.stringify({
-          place: parseInt(newReview.place, 10),
-          rating: parseInt(newReview.rating, 10),
-          title: newReview.title,
-          text: newReview.text,
-        }),
-      });
-
-      const body = await resp.json().catch(() => ({}));
-
-      if (!resp.ok) {
-        throw new Error(
-          body.detail || "Could not create review (check place and rating)"
-        );
-      }
-
-      setReviews((prev) => [body, ...prev]);
-      setNewReview({ place: "", rating: 5, title: "", text: "" });
-    } catch (err) {
-      console.error(err);
-      setReviewsError(err.message);
-    } finally {
-      setReviewSaving(false);
-    }
-  }
-
-  function startEditReview(r) {
-    setEditingReviewId(r.id);
-    setEditingReviewData({
-      rating: r.rating,
-      title: r.title || "",
-      text: r.text || "",
-    });
-  }
-
-  async function handleUpdateReview(e, id) {
-    e.preventDefault();
-    if (!isLoggedIn) {
-      setReviewsError("You must log in to edit reviews.");
-      return;
-    }
-    if (!isTravelerMode) {
-      setReviewsError("Switch to traveler mode to edit reviews.");
-      return;
-    }
-
-    setReviewsError(null);
-
-    try {
-      const stored = localStorage.getItem("ttg_user");
-      const parsed = stored ? JSON.parse(stored) : null;
-      const token = parsed?.token || parsed?.username || "";
-
-      if (!token) {
-        throw new Error("You must log in to edit reviews.");
-      }
-
-      const resp = await fetch(
-        `http://127.0.0.1:8000/api/travel/reviews/${id}/`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            "X-User-Token": token,
-          },
-          body: JSON.stringify({
-            rating: parseInt(editingReviewData.rating, 10),
-            title: editingReviewData.title,
-            text: editingReviewData.text,
-          }),
-        }
-      );
-
-      const body = await resp.json().catch(() => ({}));
-
-      if (!resp.ok) {
-        throw new Error(body.detail || "Could not update review");
-      }
-
-      setReviews((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...body } : r))
-      );
-      setEditingReviewId(null);
-    } catch (err) {
-      console.error(err);
-      setReviewsError(err.message);
-    }
-  }
-
-  async function handleDeleteReview(id) {
-    if (!isLoggedIn) {
-      setReviewsError("You must log in to delete reviews.");
-      return;
-    }
-    if (!isTravelerMode) {
-      setReviewsError("Switch to traveler mode to delete reviews.");
-      return;
-    }
-
-    try {
-      const stored = localStorage.getItem("ttg_user");
-      const parsed = stored ? JSON.parse(stored) : null;
-      const token = parsed?.token || parsed?.username || "";
-
-      const resp = await fetch(
-        `http://127.0.0.1:8000/api/travel/reviews/${id}/delete/`,
-        {
-          method: "DELETE",
-          headers: token ? { "X-User-Token": token } : {},
-        }
-      );
-
-      if (!resp.ok && resp.status !== 204) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(body.detail || "Failed to delete review");
-      }
-
-      setReviews((prev) => prev.filter((r) => r.id !== id));
-    } catch (err) {
-      console.error(err);
-      setReviewsError(err.message);
-    }
-  }
+  const outerBgClass = isDark ? "bg-black bg-gradient" : "bg-body-tertiary";
+  const cardBgClass = isDark ? "bg-dark text-light" : "bg-white text-dark";
 
   if (loading) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <TopBar />
-          <h2>🧳 Traveler Dashboard</h2>
-          <p>Loading your data...</p>
+      <div className={outerBgClass + " min-vh-100 d-flex align-items-center"}>
+        <div className="container">
+          <div className={`card shadow-lg border-0 rounded-4 ${cardBgClass}`}>
+            <div className="card-body p-4">
+              <TopBar isDark={isDark} />
+              <div className="text-center py-5">
+                <div className="spinner-border text-primary mb-3" />
+                <h2 className="h4 mb-1">Traveler Dashboard</h2>
+                <p
+                  className={
+                    "mb-0 small " +
+                    (isDark ? "text-secondary" : "text-muted")
+                  }
+                >
+                  Loading your data…
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <TopBar />
-          <h2>🧳 Traveler Dashboard</h2>
-          <p style={{ color: "#b91c1c", fontWeight: "bold" }}>Error: {error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <TopBar />
-          <h2>🧳 Traveler Dashboard</h2>
-          <p>No data available. Check authentication status.</p>
+      <div className={outerBgClass + " min-vh-100 d-flex align-items-center"}>
+        <div className="container">
+          <div className={`card shadow-lg border-0 rounded-4 ${cardBgClass}`}>
+            <div className="card-body p-4">
+              <TopBar isDark={isDark} />
+              <h2 className="h4 mb-3">Traveler Dashboard</h2>
+              <div className="alert alert-danger mb-0" role="alert">
+                {error || "No data"}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -599,782 +419,502 @@ function TravelerDashboard() {
   const { user, profile } = data;
 
   return (
-    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
-      <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 900px;
-          background: white;
-          padding: 2rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1),
-                      0 2px 4px -2px rgba(0,0,0,0.1);
-        }
-        .user-welcome {
-          font-size: 1.125rem;
-          margin-bottom: 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
-          padding-bottom: 0.75rem;
-        }
-        .stats-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        .stat-card {
-          padding: 1rem;
-          background-color: #f9fafb;
-          border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
-        }
-        .stat-card h3 {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: #6b7280;
-          margin-bottom: 0.25rem;
-        }
-        .stat-card p {
-          font-size: 1.25rem;
-          font-weight: 700;
-          color: #1f2937;
-        }
-        .primary-btn {
-          padding: 0.6rem 1.25rem;
-          border: none;
-          border-radius: 0.5rem;
-          background-color: #3b82f6;
-          color: white;
-          font-weight: 600;
-          cursor: pointer;
-          transition: background-color 0.2s;
-        }
-        .primary-btn:disabled {
-          background-color: #93c5fd;
-          cursor: not-allowed;
-        }
-      `}</style>
-
-      <div className="dashboard-card">
-        <TopBar />
-
-        {parsedUser && realRole === "MERCHANT" && mode !== "MERCHANT" && (
-          <button
-            type="button"
-            className="primary-btn"
-            style={{ marginBottom: "0.75rem", marginRight: "0.5rem" }}
-            onClick={() => {
-              const updated = { ...parsedUser, mode: "MERCHANT" };
-              localStorage.setItem("ttg_user", JSON.stringify(updated));
-              window.location.href = "/merchant";
-            }}
-          >
-            Switch to merchant mode
-          </button>
-        )}
-
-        <h2 className="text-2xl font-bold text-gray-800">
-          Traveler Dashboard
-        </h2>
-
-        <div className="user-welcome">
-          Welcome, <strong>{user.username}</strong>{" "}
-          
-        </div>
-
-        <div className="stats-row">
-          <div className="stat-card">
-            <h3>Area</h3>
-            <p>{profile.area}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Years in area</h3>
-            <p>{profile.years_in_area}</p>
-          </div>
-        </div>
-
-        {/* PROFILE DETAILS */}
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">Profile details</h3>
-          <p>
-            <strong>Name:</strong> {user.username}
-          </p>
-          <p>
-            <strong>Email:</strong> {user.email || "Not set"}
-          </p>
-          <p>
-            <strong>Area:</strong> {profile.area}
-          </p>
-          <p>
-            <strong>Years in area:</strong> {profile.years_in_area}
-          </p>
-        </section>
-
-        {/* EDIT PROFILE */}
-        <section style={{ marginTop: "1.5rem" }}>
+    <div className={outerBgClass + " min-vh-100 py-4"}>
+      <div className="container">
+        <div
+          className={
+            "card shadow-lg border-0 rounded-4 overflow-hidden " + cardBgClass
+          }
+        >
+          {/* Hero header */}
           <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "0.5rem",
-            }}
+            className={
+              "px-4 pt-4 pb-3 bg-gradient " +
+              (isDark ? "bg-primary text-light" : "bg-primary text-white")
+            }
           >
-            <h3 className="text-xl font-semibold">Edit Profile</h3>
-            <button
-              type="button"
-              onClick={() => setShowEditProfile((prev) => !prev)}
-              className="primary-btn"
-              style={{ padding: "0.35rem 0.9rem", fontSize: "0.85rem" }}
-            >
-              {showEditProfile ? "Hide form" : "Edit profile"}
-            </button>
-          </div>
-
-          {message && (
-            <div
-              className="alert success"
-              style={{ marginBottom: "0.75rem", color: "#065f46" }}
-            >
-              {message}
-            </div>
-          )}
-          {error && (
-            <p style={{ color: "#b91c1c", fontSize: "0.9rem" }}>{error}</p>
-          )}
-
-          {showEditProfile && (
-            <form
-              className="auth-form"
-              onSubmit={handleSaveProfile}
-              style={{ maxWidth: "400px" }}
-            >
-              <div className="form-row">
-                <label htmlFor="area_id">Area</label>
-                <select
-                  id="area_id"
-                  name="area_id"
-                  value={form.area_id}
-                  onChange={handleChange}
-                  required
+            <TopBar isDark={isDark} />
+            <div className="d-flex flex-wrap align-items-center justify-content-between">
+              <div className="mb-3 mb-lg-0">
+                <h1
+                  className={
+                    "h3 mb-1 " + (isDark ? "text-light" : "text-white")
+                  }
                 >
-                  <option value="">Select area</option>
-                  {areas.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
+                  Welcome, {user.username}
+                </h1>
+                <p
+                  className={
+                    "mb-1 small " +
+                    (isDark ? "text-light opacity-75" : "text-white-50")
+                  }
+                >
+                  Discover new places, manage your profile, and see all your
+                  reviews as a traveler.
+                </p>
+                <div className="d-flex align-items-center gap-2 mt-1">
+                  <span className="badge rounded-pill bg-light text-dark">
+                    Traveler mode
+                  </span>
+                  <span className="badge rounded-pill bg-light text-dark">
+                    {profile.area || "Area not set"}
+                  </span>
+                </div>
               </div>
 
-              <div className="form-row">
-                <label htmlFor="years_in_area">Years in area</label>
-                <input
-                  id="years_in_area"
-                  name="years_in_area"
-                  type="number"
-                  min="0"
-                  value={form.years_in_area}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <button
-                className="primary-btn"
-                type="submit"
-                disabled={saving}
-                style={{ alignSelf: "flex-start" }}
-              >
-                {saving ? "Saving..." : "Save changes"}
-              </button>
-            </form>
-          )}
-        </section>
-
-        {/* SAVED PLACES */}
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">Saved places</h3>
-          {!isTravelerMode && isLoggedIn && (
-            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-              Switch to traveler mode to manage saved places.
-            </p>
-          )}
-          {savedLoading ? (
-            <p>Loading saved places...</p>
-          ) : savedError ? (
-            <p style={{ color: "#b91c1c" }}>{savedError}</p>
-          ) : savedPlaces.length === 0 ? (
-            <p style={{ color: "#6b7280" }}>
-              You have not saved any places yet.
-            </p>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                gap: "1rem",
-                marginTop: "0.75rem",
-              }}
-            >
-              {savedPlaces.map((item) => {
-                const p = item.place;
-                return (
-                  <div
-                    key={item.id}
-                    style={{
-                      borderRadius: "0.75rem",
-                      overflow: "hidden",
-                      boxShadow: "0 6px 16px rgba(15,23,42,0.08)",
-                      background: "#ffffff",
-                      display: "flex",
-                      flexDirection: "column",
-                    }}
-                  >
-                    {p.image_url ? (
-                      <img
-                        src={p.image_url}
-                        alt={p.name}
-                        style={{
-                          width: "100%",
-                          height: "140px",
-                          objectFit: "cover",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: "100%",
-                          height: "140px",
-                          background: "#e5e7eb",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#6b7280",
-                          fontSize: "0.9rem",
-                        }}
-                      >
-                        No image
-                      </div>
-                    )}
-                    <div style={{ padding: "0.75rem 0.9rem", flexGrow: 1 }}>
-                      <h4 style={{ margin: 0, fontSize: "1rem" }}>{p.name}</h4>
-                      <p
-                        style={{
-                          margin: "0.25rem 0",
-                          fontSize: "0.85rem",
-                          color: "#6b7280",
-                        }}
-                      >
-                        {p.area_name || "Area not set"}
-                      </p>
-                      <p
-                        style={{
-                          margin: 0,
-                          fontSize: "0.85rem",
-                          color: "#4b5563",
-                        }}
-                      >
-                        {p.category} • {p.average_rating.toFixed(1)}
-                      </p>
-                    </div>
-                    <div
-                      style={{
-                        padding: "0.65rem 0.9rem 0.8rem",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
+              <div className="text-end">
+                {parsedUser &&
+                  realRole === "MERCHANT" &&
+                  mode !== "MERCHANT" && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-light rounded-pill mb-2"
+                      onClick={() => {
+                        const updated = { ...parsedUser, mode: "MERCHANT" };
+                        localStorage.setItem(
+                          "ttg_user",
+                          JSON.stringify(updated)
+                        );
+                        window.location.href = "/merchant";
                       }}
                     >
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSaved(item.id)}
-                        disabled={!isTravelerMode || !isLoggedIn}
-                        style={{
-                          border: "none",
-                          background: "none",
-                          color:
-                            !isTravelerMode || !isLoggedIn
-                              ? "#9ca3af"
-                              : "#b91c1c",
-                          cursor:
-                            !isTravelerMode || !isLoggedIn
-                              ? "not-allowed"
-                              : "pointer",
-                          fontSize: "0.85rem",
-                        }}
+                      <i className="bi bi-shop me-1" />
+                      Switch to merchant
+                    </button>
+                  )}
+              </div>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="card-body p-4">
+            {message && (
+              <div className="alert alert-success py-2 small" role="alert">
+                {message}
+              </div>
+            )}
+            {error && (
+              <div className="alert alert-danger py-2 small" role="alert">
+                {error}
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div className="row g-3 mb-4">
+              <div className="col-md-3">
+                <div className="card border-0 bg-primary-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-primary text-white rounded-circle p-3">
+                        <i className="bi bi-geo-alt-fill" />
+                      </span>
+                    </div>
+                    <div>
+                      <div
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
                       >
-                        Remove
-                      </button>
-                      <button
-                        type="button"
-                        style={{
-                          fontSize: "0.85rem",
-                          color: "#2563eb",
-                          textDecoration: "none",
-                          border: "none",
-                          background: "none",
-                          cursor: "pointer",
-                          padding: 0,
-                        }}
-                      >
-                        View details
-                      </button>
+                        Area
+                      </div>
+                      <div className="fw-bold text-dark">
+                        {profile.area || "Not set"}
+                      </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
+                </div>
+              </div>
 
-        {/* MY REVIEWS */}
-        <section style={{ marginTop: "1.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">My reviews</h3>
-          <p
-            style={{
-              color: "#6b7280",
-              fontSize: "0.9rem",
-              marginBottom: "0.5rem",
-            }}
-          >
-            Select any place, give a rating, and share your experience. Your
-            reviews help other travelers.
-          </p>
-          {!isTravelerMode && isLoggedIn && (
-            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-              Switch to traveler mode to create or edit reviews.
-            </p>
-          )}
-          {reviewsLoading ? (
-            <p>Loading reviews...</p>
-          ) : (
-            <>
-              {reviewsError && (
-                <p style={{ color: "#b91c1c" }}>{reviewsError}</p>
+              <div className="col-md-3">
+                <div className="card border-0 bg-success-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-success text-white rounded-circle p-3">
+                        <i className="bi bi-emoji-smile-fill" />
+                      </span>
+                    </div>
+                    <div>
+                      <div
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
+                      >
+                        Years in area
+                      </div>
+                      <div className="fw-bold text-dark">
+                        {profile.years_in_area || "0"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-md-3">
+                <div className="card border-0 bg-info-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-info text-white rounded-circle p-3">
+                        <i className="bi bi-bookmark-heart-fill" />
+                      </span>
+                    </div>
+                    <div>
+                      <div
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
+                      >
+                        Saved places
+                      </div>
+                      <div className="fw-bold text-dark">
+                        {savedPlaces.length}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-md-3">
+                <div className="card border-0 bg-warning-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-warning text-dark rounded-circle p-3">
+                        <i className="bi bi-star-fill" />
+                      </span>
+                    </div>
+                    <div>
+                      <div
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
+                      >
+                        My reviews
+                      </div>
+                      <div className="fw-bold text-dark">{reviews.length}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Two-column layout: profile + edit */}
+            <div className="row g-4 mb-4">
+              <div className="col-lg-5">
+                <div
+                  className={
+                    "card border-0 h-100 " +
+                    (isDark ? "bg-secondary text-light" : "bg-light")
+                  }
+                >
+                  <div className="card-body">
+                    <h3
+                      className={
+                        "h6 text-uppercase mb-3 " +
+                        (isDark ? "text-light" : "text-muted")
+                      }
+                    >
+                      Profile details
+                    </h3>
+                    <dl className="row mb-0 small">
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Name
+                      </dt>
+                      <dd className="col-7 fw-semibold">
+                        {user.username}
+                      </dd>
+
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Email
+                      </dt>
+                      <dd className="col-7">
+                        {user.email || "Not set"}
+                      </dd>
+
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Area
+                      </dt>
+                      <dd className="col-7">
+                        {profile.area || "Not set"}
+                      </dd>
+
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Years in area
+                      </dt>
+                      <dd className="col-7">
+                        {profile.years_in_area || "0"}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-lg-7">
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                  <h3
+                    className={
+                      "h6 text-uppercase mb-0 " +
+                      (isDark ? "text-secondary" : "text-muted")
+                    }
+                  >
+                    Edit profile
+                  </h3>
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm rounded-pill"
+                    onClick={() => setShowEditProfile((prev) => !prev)}
+                  >
+                    {showEditProfile ? "Hide form" : "Edit details"}
+                  </button>
+                </div>
+
+                {showEditProfile && (
+                  <form
+                    onSubmit={handleSaveProfile}
+                    className={
+                      "card border-0 shadow-sm " +
+                      (isDark ? "bg-dark text-light" : "bg-white")
+                    }
+                  >
+                    <div className="card-body">
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label className="form-label">Area</label>
+                          {areasLoading ? (
+                            <p className="text-muted small mb-0">
+                              Loading areas…
+                            </p>
+                          ) : (
+                            <select
+                              className="form-select form-select-sm"
+                              name="area_id"
+                              value={form.area_id}
+                              onChange={handleProfileChange}
+                              required
+                            >
+                              <option value="">Select area…</option>
+                              {areas.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label">Years in area</label>
+                          <input
+                            type="number"
+                            min="0"
+                            className="form-control form-control-sm"
+                            name="years_in_area"
+                            value={form.years_in_area}
+                            onChange={handleProfileChange}
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 d-flex justify-content-end">
+                        <button
+                          type="submit"
+                          className="btn btn-primary btn-sm rounded-pill"
+                          disabled={saving}
+                        >
+                          {saving ? "Saving..." : "Save changes"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+
+            {/* Saved places */}
+            <div className="mb-4">
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <h3
+                  className={
+                    "h6 text-uppercase mb-0 " +
+                    (isDark ? "text-secondary" : "text-muted")
+                  }
+                >
+                  Saved places
+                </h3>
+              </div>
+
+              {!isTravelerMode && isLoggedIn && (
+                <p
+                  className={
+                    "small mb-2 " +
+                    (isDark ? "text-secondary" : "text-muted")
+                  }
+                >
+                  Switch to traveler mode to manage saved places.
+                </p>
               )}
 
-              {/* Create review form */}
-              <form
-                onSubmit={handleCreateReview}
-                style={{
-                  display: "grid",
-                  gap: "0.75rem",
-                  maxWidth: "500px",
-                  marginBottom: "1rem",
-                  marginTop: "0.5rem",
-                }}
-              >
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: 500,
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    Place
-                  </label>
-                  {allPlacesLoading ? (
-                    <p style={{ fontSize: "0.85rem" }}>Loading places...</p>
-                  ) : allPlacesError ? (
-                    <p
-                      style={{
-                        fontSize: "0.85rem",
-                        color: "#b91c1c",
-                      }}
-                    >
-                      {allPlacesError}
-                    </p>
-                  ) : (
-                    <select
-                      name="place"
-                      value={newReview.place}
-                      onChange={handleNewReviewChange}
-                      style={{
-                        width: "100%",
-                        padding: "0.5rem 0.75rem",
-                        borderRadius: "0.375rem",
-                        border: "1px solid #d1d5db",
-                      }}
-                      required
-                      disabled={!isTravelerMode || !isLoggedIn}
-                    >
-                      <option value="">Select a place</option>
-                      {allPlaces.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                          {p.area_name ? ` — ${p.area_name}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+              {savedLoading ? (
+                <p className="text-muted small mb-0">
+                  Loading saved places…
+                </p>
+              ) : savedError ? (
+                <div className="alert alert-danger py-2 small" role="alert">
+                  {savedError}
                 </div>
+              ) : savedPlaces.length === 0 ? (
+                <p className="text-muted small mb-0">
+                  You have not saved any places yet.
+                </p>
+              ) : (
+                <div className="row g-3">
+                  {savedPlaces.map((item) => {
+                    const p = item.place;
 
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: 500,
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    Rating (1–5)
-                  </label>
-                  <input
-                    name="rating"
-                    type="number"
-                    min="1"
-                    max="5"
-                    value={newReview.rating}
-                    onChange={handleNewReviewChange}
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem 0.75rem",
-                      borderRadius: "0.375rem",
-                      border: "1px solid #d1d5db",
-                    }}
-                    required
-                    disabled={!isTravelerMode || !isLoggedIn}
-                  />
+                    const imgSrc =
+                      p.image_url ||
+                      (typeof p.image === "string" && p.image.length > 0
+                        ? p.image.startsWith("http")
+                          ? p.image
+                          : `http://127.0.0.1:8000${p.image}`
+                        : null);
+
+                    return (
+                      <div className="col-md-4" key={item.id}>
+                        <div className="card h-100 border-0 bg-body-secondary">
+                          {imgSrc ? (
+                            <img
+                              src={imgSrc}
+                              alt={p.name}
+                              className="card-img-top"
+                              style={{ height: "140px", objectFit: "cover" }}
+                            />
+                          ) : (
+                            <div
+                              className="card-img-top d-flex align-items-center justify-content-center bg-secondary-subtle text-muted"
+                              style={{ height: "140px" }}
+                            >
+                              No image
+                            </div>
+                          )}
+                          <div className="card-body py-2 px-3">
+                            <h5 className="card-title h6 mb-1">{p.name}</h5>
+                            <p className="card-text small mb-1 text-muted">
+                              {p.area_name || "Area not set"}
+                            </p>
+                            <p className="card-text small mb-0 text-muted">
+                              {p.category} • {p.average_rating.toFixed(1)}★
+                            </p>
+                          </div>
+                          <div className="card-footer bg-transparent border-0 pt-0 pb-2 px-3 d-flex justify-content-between">
+                            <button
+                              type="button"
+                              className="btn btn-link btn-sm p-0 text-danger"
+                              onClick={() => handleRemoveSaved(item.id)}
+                              disabled={!isTravelerMode || !isLoggedIn}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
 
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: 500,
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    Title (optional)
-                  </label>
-                  <input
-                    name="title"
-                    value={newReview.title}
-                    onChange={handleNewReviewChange}
-                    placeholder="Great place for street food"
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem 0.75rem",
-                      borderRadius: "0.375rem",
-                      border: "1px solid #d1d5db",
-                    }}
-                    disabled={!isTravelerMode || !isLoggedIn}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "0.85rem",
-                      fontWeight: 500,
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    Review text (optional)
-                  </label>
-                  <textarea
-                    name="text"
-                    value={newReview.text}
-                    onChange={handleNewReviewChange}
-                    rows={3}
-                    placeholder="Share your experience..."
-                    style={{
-                      width: "100%",
-                      padding: "0.5rem 0.75rem",
-                      borderRadius: "0.375rem",
-                      border: "1px solid #d1d5db",
-                    }}
-                    disabled={!isTravelerMode || !isLoggedIn}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={reviewSaving || !isTravelerMode || !isLoggedIn}
-                  style={{
-                    alignSelf: "flex-start",
-                    padding: "0.5rem 1.1rem",
-                    borderRadius: "999px",
-                    border: "none",
-                    background:
-                      !isTravelerMode || !isLoggedIn ? "#93c5fd" : "#3b82f6",
-                    color: "white",
-                    fontWeight: 600,
-                    cursor:
-                      !isTravelerMode || !isLoggedIn
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
+            {/* My reviews (read‑only) */}
+            <div>
+              <div className="d-flex align-items-center justify-content-between mb-2">
+                <h3
+                  className={
+                    "h6 text-uppercase mb-0 " +
+                    (isDark ? "text-secondary" : "text-muted")
+                  }
                 >
-                  {reviewSaving
-                    ? "Saving..."
-                    : !isLoggedIn
-                    ? "Log in to post review"
-                    : !isTravelerMode
-                    ? "Switch to traveler mode"
-                    : "Post review"}
-                </button>
-              </form>
+                  My reviews
+                </h3>
+              </div>
 
-              {/* Reviews list */}
-              {!reviewsLoading && reviews.length === 0 && !reviewsError ? (
-                <p style={{ color: "#6b7280" }}>
+              {reviewsError && (
+                <div className="alert alert-danger py-2 small" role="alert">
+                  {reviewsError}
+                </div>
+              )}
+
+              {reviewsLoading ? (
+                <p className="text-muted small mb-0">Loading reviews…</p>
+              ) : reviews.length === 0 ? (
+                <p className="text-muted small mb-0">
                   You have not written any reviews yet.
                 </p>
               ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.75rem",
-                  }}
-                >
+                <div className="row g-3">
                   {reviews.map((r) => (
-                    <div
-                      key={r.id}
-                      style={{
-                        padding: "0.75rem 0.9rem",
-                        borderRadius: "0.5rem",
-                        border: "1px solid #e5e7eb",
-                        backgroundColor: "#f9fafb",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <div>
-                          <strong>{r.place_name}</strong>{" "}
-                          <span
-                            style={{
-                              fontSize: "0.85rem",
-                              color: "#6b7280",
-                            }}
-                          >
-                            {r.place_area}
-                          </span>
-                        </div>
-                        <div style={{ fontSize: "0.9rem" }}>{r.rating}★</div>
-                      </div>
-                      {r.title && (
-                        <p
-                          style={{
-                            margin: "0.25rem 0",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {r.title}
-                        </p>
-                      )}
-                      {r.text && (
-                        <p
-                          style={{
-                            margin: "0.25rem 0",
-                            fontSize: "0.9rem",
-                            color: "#4b5563",
-                          }}
-                        >
-                          {r.text}
-                        </p>
-                      )}
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          fontSize: "0.8rem",
-                          marginTop: "0.25rem",
-                        }}
-                      >
-                        <span style={{ color: "#9ca3af" }}>
-                          {formatDateTime(r.created_at)}
-                        </span>
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => startEditReview(r)}
-                            disabled={!isTravelerMode || !isLoggedIn}
-                            style={{
-                              border: "none",
-                              background: "none",
-                              color:
-                                !isTravelerMode || !isLoggedIn
-                                  ? "#9ca3af"
-                                  : "#2563eb",
-                              cursor:
-                                !isTravelerMode || !isLoggedIn
-                                  ? "not-allowed"
-                                  : "pointer",
-                              marginRight: "0.5rem",
-                              fontSize: "0.85rem",
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteReview(r.id)}
-                            disabled={!isTravelerMode || !isLoggedIn}
-                            style={{
-                              border: "none",
-                              background: "none",
-                              color:
-                                !isTravelerMode || !isLoggedIn
-                                  ? "#9ca3af"
-                                  : "#b91c1c",
-                              cursor:
-                                !isTravelerMode || !isLoggedIn
-                                  ? "not-allowed"
-                                  : "pointer",
-                              fontSize: "0.85rem",
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
+                    <div className="col-md-6" key={r.id}>
+                      <div className="card border-0 bg-body-secondary h-100">
+                        <div className="card-body p-3">
+                          <div className="d-flex justify-content-between">
+                            <div>
+                              <div className="fw-semibold small">
+                                {r.place_name}
+                                {r.place_area && (
+                                  <span className="text-muted">
+                                    {" "}
+                                    · {r.place_area}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-muted small">
+                                {formatDateTime(r.created_at)}
+                              </div>
+                            </div>
+                            <div className="fw-bold text-warning">
+                              {r.rating}★
+                            </div>
+                          </div>
 
-                      {editingReviewId === r.id && (
-                        <form
-                          onSubmit={(e) => handleUpdateReview(e, r.id)}
-                          style={{
-                            marginTop: "0.5rem",
-                            display: "grid",
-                            gap: "0.5rem",
-                          }}
-                        >
-                          <div>
-                            <label
-                              style={{
-                                display: "block",
-                                fontSize: "0.8rem",
-                                fontWeight: 500,
-                                marginBottom: "0.15rem",
-                              }}
-                            >
-                              Rating (1–5)
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              max="5"
-                              value={editingReviewData.rating}
-                              onChange={(e) =>
-                                setEditingReviewData((prev) => ({
-                                  ...prev,
-                                  rating: e.target.value,
-                                }))
-                              }
-                              style={{
-                                width: "100%",
-                                padding: "0.4rem 0.6rem",
-                                borderRadius: "0.375rem",
-                                border: "1px solid #d1d5db",
-                              }}
-                              required
-                              disabled={!isTravelerMode || !isLoggedIn}
-                            />
-                          </div>
-                          <div>
-                            <label
-                              style={{
-                                display: "block",
-                                fontSize: "0.8rem",
-                                fontWeight: 500,
-                                marginBottom: "0.15rem",
-                              }}
-                            >
-                              Title
-                            </label>
-                            <input
-                              value={editingReviewData.title}
-                              onChange={(e) =>
-                                setEditingReviewData((prev) => ({
-                                  ...prev,
-                                  title: e.target.value,
-                                }))
-                              }
-                              style={{
-                                width: "100%",
-                                padding: "0.4rem 0.6rem",
-                                borderRadius: "0.375rem",
-                                border: "1px solid #d1d5db",
-                              }}
-                              disabled={!isTravelerMode || !isLoggedIn}
-                            />
-                          </div>
-                          <div>
-                            <label
-                              style={{
-                                display: "block",
-                                fontSize: "0.8rem",
-                                fontWeight: 500,
-                                marginBottom: "0.15rem",
-                              }}
-                            >
-                              Review text
-                            </label>
-                            <textarea
-                              rows={2}
-                              value={editingReviewData.text}
-                              onChange={(e) =>
-                                setEditingReviewData((prev) => ({
-                                  ...prev,
-                                  text: e.target.value,
-                                }))
-                              }
-                              style={{
-                                width: "100%",
-                                padding: "0.4rem 0.6rem",
-                                borderRadius: "0.375rem",
-                                border: "1px solid #d1d5db",
-                              }}
-                              disabled={!isTravelerMode || !isLoggedIn}
-                            />
-                          </div>
-                          <div style={{ display: "flex", gap: "0.5rem" }}>
-                            <button
-                              type="submit"
-                              className="primary-btn"
-                              style={{
-                                padding: "0.4rem 0.9rem",
-                                fontSize: "0.85rem",
-                              }}
-                              disabled={!isTravelerMode || !isLoggedIn}
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingReviewId(null)}
-                              style={{
-                                border: "none",
-                                background: "none",
-                                color: "#6b7280",
-                                cursor: "pointer",
-                                fontSize: "0.85rem",
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </form>
-                      )}
+                          {r.title && (
+                            <p className="fw-semibold small mt-2 mb-1">
+                              {r.title}
+                            </p>
+                          )}
+                          {r.text && (
+                            <p className="small text-muted mb-0">{r.text}</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
-            </>
-          )}
-        </section>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

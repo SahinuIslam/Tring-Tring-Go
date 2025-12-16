@@ -1,5 +1,4 @@
-# travel/views.py
-
+# travel/api/views.py
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 
@@ -15,7 +14,7 @@ from .serializers import (
     SavedPlaceSerializer,
     PlaceSerializer,
     ReviewSerializer,
-    MerchantProfileSerializer,  # you must define this in travel/serializers.py
+    MerchantProfileSerializer,  # ensure this exists in travel/serializers.py
 )
 
 
@@ -132,6 +131,21 @@ def my_reviews(request):
         return error
 
     qs = Review.objects.filter(traveler=traveler).select_related("place")
+    serializer = ReviewSerializer(qs, many=True)
+    return Response(serializer.data)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def place_reviews(request, pk):
+    """
+    List all reviews for a given place (used by ExplorePage Reviews modal).
+    Public read: no auth required.
+    """
+    qs = Review.objects.filter(place_id=pk).select_related("traveler", "place").order_by(
+        "-created_at"
+    )
     serializer = ReviewSerializer(qs, many=True)
     return Response(serializer.data)
 

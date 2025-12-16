@@ -1,6 +1,208 @@
+// src/pages/ServicesPage.jsx
 import React, { useEffect, useState } from "react";
 
-function Services() {
+/* ---------- shared auth helper ---------- */
+
+function getAuthUser() {
+  const stored = localStorage.getItem("ttg_user");
+  const parsed = stored ? JSON.parse(stored) : null;
+  return parsed;
+}
+
+/* ---------- global theme helper ---------- */
+
+function getInitialTheme() {
+  const stored = localStorage.getItem("ttg_theme");
+  return stored === "dark" || stored === "light" ? stored : "light";
+}
+
+/* ---------- TopBar (no theme toggle, follows theme classes) ---------- */
+
+function TopBar({ isDark }) {
+  async function handleLogout() {
+    try {
+      await fetch("http://127.0.0.1:8000/api/accounts/logout/", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (e) {
+      console.error("Logout API error (ignored):", e);
+    }
+    localStorage.removeItem("ttg_user");
+    window.location.href = "/login";
+  }
+
+  const path = window.location.pathname;
+  const parsed = getAuthUser();
+  const mode = parsed?.mode || parsed?.role || "TRAVELER";
+
+  const dashboardHref =
+    mode === "MERCHANT"
+      ? "/merchant"
+      : mode === "ADMIN"
+      ? "/admin"
+      : "/traveler";
+
+  const isActive = (name) => {
+    if (name === "home") return path === "/" || path === "/home";
+    if (name === "explore") return path.startsWith("/explore");
+    if (name === "community") return path.startsWith("/community");
+    if (name === "services") return path.startsWith("/services");
+    if (name === "dashboard")
+      return (
+        path.startsWith("/traveler") ||
+        path.startsWith("/merchant") ||
+        path.startsWith("/admin") ||
+        path.startsWith("/dashboard")
+      );
+    return false;
+  };
+
+  const linkClass = (name) =>
+    "nav-link px-3 py-1 rounded-pill" +
+    (isActive(name)
+      ? " fw-semibold text-white bg-primary"
+      : isDark
+      ? " text-light"
+      : " text-secondary");
+
+  return (
+    <nav
+      className={
+        "navbar navbar-expand-lg mb-3 topbar-bordered " +
+        (isDark ? "navbar-dark" : "navbar-light")
+      }
+    >
+      <div className="container-fluid">
+        <span
+          className={
+            "navbar-brand brand-glow " +
+            (isDark ? "brand-glow-dark" : "brand-glow-light")
+          }
+        >
+          TringTringGo
+        </span>
+
+        <button
+          className="navbar-toggler"
+          type="button"
+          data-bs-toggle="collapse"
+          data-bs-target="#servicesTopbarNav"
+        >
+          <span className="navbar-toggler-icon" />
+        </button>
+
+        <div className="collapse navbar-collapse" id="servicesTopbarNav">
+          <ul className="navbar-nav me-auto mb-2 mb-lg-0 gap-1">
+            <li className="nav-item">
+              <a href="/home" className={linkClass("home")}>
+                Home
+              </a>
+            </li>
+            <li className="nav-item">
+              <a href="/explore" className={linkClass("explore")}>
+                Explore
+              </a>
+            </li>
+            <li className="nav-item">
+              <a href="/community" className={linkClass("community")}>
+                Community
+              </a>
+            </li>
+            <li className="nav-item">
+              <a href="/services" className={linkClass("services")}>
+                Services
+              </a>
+            </li>
+            <li className="nav-item">
+              <a href={dashboardHref} className={linkClass("dashboard")}>
+                Dashboard
+              </a>
+            </li>
+          </ul>
+
+          <div className="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-danger rounded-pill"
+              onClick={handleLogout}
+            >
+              <i className="bi bi-box-arrow-right me-1" />
+              Log out
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+/* ---------- Main page with global theme ---------- */
+
+function ServicesPage() {
+  const [theme, setTheme] = useState(getInitialTheme);
+  const isDark = theme === "dark";
+
+  // keep in sync if some other page changes ttg_theme
+  useEffect(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    if (stored === "dark" || stored === "light") {
+      setTheme(stored);
+    }
+  }, []);
+
+  const outerBgClass = isDark ? "bg-black bg-gradient" : "bg-body-tertiary";
+  const cardBgClass = isDark ? "bg-dark text-light" : "bg-white text-dark";
+
+  return (
+    <div className={outerBgClass + " min-vh-100 py-4"}>
+      <div className="container">
+        <div
+          className={
+            "card shadow-lg border-0 rounded-4 overflow-hidden " + cardBgClass
+          }
+        >
+          <div
+            className={
+              "px-4 pt-4 pb-3 bg-gradient " +
+              (isDark ? "bg-primary text-light" : "bg-primary text-white")
+            }
+          >
+            <TopBar isDark={isDark} />
+            <div className="d-flex flex-wrap align-items-center justify-content-between">
+              <div className="mb-3 mb-lg-0">
+                <h1
+                  className={
+                    "h3 mb-1 " + (isDark ? "text-light" : "text-white")
+                  }
+                >
+                  Nearby Services
+                </h1>
+                <p
+                  className={
+                    "mb-1 small " +
+                    (isDark ? "text-light opacity-75" : "text-white-50")
+                  }
+                >
+                  Find hospitals, police stations, ATMs, pharmacies and transport
+                  hubs around your travel area.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-body p-4">
+            <ServicesCore />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Services content (unchanged) ---------- */
+
+function ServicesCore() {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -8,7 +210,6 @@ function Services() {
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedService, setSelectedService] = useState(null);
 
-  // Basic categories you mentioned
   const categories = [
     { key: "ALL", label: "All" },
     { key: "HOSPITAL", label: "Hospitals" },
@@ -60,27 +261,8 @@ function Services() {
       : services.filter((s) => s.category === selectedCategory);
 
   return (
-    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
+    <>
       <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 1100px;
-          background: white;
-          padding: 2rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1),
-                      0 2px 4px -2px rgba(0,0,0,0.1);
-        }
-        .services-layout {
-          display: grid;
-          grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-          gap: 1.5rem;
-        }
-        @media (max-width: 900px) {
-          .services-layout {
-            grid-template-columns: minmax(0, 1fr);
-          }
-        }
         .services-category-chip {
           padding: 0.35rem 0.8rem;
           border-radius: 999px;
@@ -111,22 +293,8 @@ function Services() {
         }
       `}</style>
 
-      <div className="dashboard-card">
-        <h2 className="text-2xl font-bold text-gray-800">Nearby Services</h2>
-        <p className="text-sm text-gray-600 mb-3">
-          Find important services like hospitals, police stations, ATMs,
-          pharmacies and transport hubs around your travel area.
-        </p>
-
-        {/* Category filters */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "0.5rem",
-            marginBottom: "1rem",
-          }}
-        >
+      <div className="mb-3">
+        <div className="d-flex flex-wrap gap-2 mb-2">
           {categories.map((c) => (
             <button
               key={c.key}
@@ -141,15 +309,17 @@ function Services() {
             </button>
           ))}
         </div>
+      </div>
 
-        {loading && <p>Loading services...</p>}
-        {error && (
-          <p style={{ color: "#b91c1c", fontWeight: 500 }}>Error: {error}</p>
-        )}
+      {loading && <p className="small text-muted mb-0">Loading services…</p>}
+      {error && (
+        <p className="text-danger fw-semibold small mb-0">Error: {error}</p>
+      )}
 
-        {!loading && !error && (
-          <div className="services-layout">
-            {/* Left: list */}
+      {!loading && !error && (
+        <div className="row g-3">
+          {/* Left: list */}
+          <div className="col-lg-5">
             <div
               style={{
                 display: "flex",
@@ -161,7 +331,7 @@ function Services() {
               }}
             >
               {filteredServices.length === 0 ? (
-                <p style={{ color: "#6b7280" }}>
+                <p className="small text-muted mb-0">
                   No services found for this category.
                 </p>
               ) : (
@@ -176,13 +346,7 @@ function Services() {
                     }
                     onClick={() => setSelectedService(s)}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
+                    <div className="d-flex justify-content-between align-items-center">
                       <div>
                         <h3
                           style={{
@@ -254,8 +418,10 @@ function Services() {
                 ))
               )}
             </div>
+          </div>
 
-            {/* Right: map / details */}
+          {/* Right: map / details */}
+          <div className="col-lg-7">
             <div
               style={{
                 borderRadius: "0.75rem",
@@ -280,9 +446,15 @@ function Services() {
               </h3>
 
               {!selectedService ? (
-                <p style={{ color: "#6b7280", fontSize: "0.9rem" }}>
-                  Select a service from the list to see its location and
-                  extra information.
+                <p
+                  style={{
+                    color: "#6b7280",
+                    fontSize: "0.9rem",
+                    marginBottom: 0,
+                  }}
+                >
+                  Select a service from the list to see its location and extra
+                  information.
                 </p>
               ) : (
                 <>
@@ -378,10 +550,10 @@ function Services() {
               )}
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 
-export default Services;
+export default ServicesPage;

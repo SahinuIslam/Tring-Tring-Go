@@ -10,18 +10,26 @@ from .views import (
     update_review,
     list_areas,
     explore_merchants,
+    place_reviews,  # ← add this import
 )
 
 urlpatterns = [
     # places
     path("places/", list_places, name="place-list"),
 
+    # NEW: reviews for a specific place (used by ExplorePage Reviews button)
+    path(
+        "places/<int:pk>/reviews/",
+        place_reviews,
+        name="place-reviews",
+    ),
+
     # saved places
     path("saved-places/", list_saved_places, name="saved-place-list"),
     path("saved-places/add/", add_saved_place, name="saved-place-add"),
     path("saved-places/<int:pk>/", remove_saved_place, name="saved-place-remove"),
 
-    # reviews
+    # reviews (current user)
     path("reviews/", my_reviews, name="my-reviews"),
     path("reviews/create/", create_review, name="review-create"),
     path("reviews/<int:pk>/", update_review, name="review-update"),

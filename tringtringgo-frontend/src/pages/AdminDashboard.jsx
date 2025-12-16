@@ -1,7 +1,7 @@
-// src/AdminDashboard.jsx
+/// src/AdminDashboard.jsx
 import React, { useEffect, useState } from "react";
 
-function TopBar() {
+function TopBar({ isDark }) {
   async function handleLogout() {
     try {
       await fetch("http://127.0.0.1:8000/api/accounts/logout/", {
@@ -22,11 +22,17 @@ function TopBar() {
         alignItems: "center",
         justifyContent: "space-between",
         marginBottom: "1rem",
-        borderBottom: "1px solid #e5e7eb",
+        borderBottom: isDark ? "1px solid #374151" : "1px solid #e5e7eb",
         paddingBottom: "1rem",
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "#1f2937" }}>
+      <div
+        style={{
+          fontWeight: 700,
+          fontSize: "1.1rem",
+          color: isDark ? "#e5e7eb" : "#1f2937",
+        }}
+      >
         TringTringGo
       </div>
       <div
@@ -35,7 +41,7 @@ function TopBar() {
           alignItems: "center",
           gap: "1rem",
           fontSize: "0.95rem",
-          color: "#4b5563",
+          color: isDark ? "#d1d5db" : "#4b5563",
         }}
       >
         <button
@@ -70,6 +76,20 @@ function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [actingId, setActingId] = useState(null);
   const [communityError, setCommunityError] = useState("");
+
+  // global theme from Settings
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    return stored === "dark" || stored === "light" ? stored : "light";
+  });
+  const isDark = theme === "dark";
+
+  useEffect(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    if (stored === "dark" || stored === "light") {
+      setTheme(stored);
+    }
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -136,8 +156,6 @@ function AdminDashboard() {
             commBody.detail || "Failed to load community posts"
           );
         } else {
-          // commBody is list of posts without comments;
-          // we’ll fetch comments per post below (simple version)
           const postsWithComments = await Promise.all(
             commBody.map(async (p) => {
               try {
@@ -259,7 +277,6 @@ function AdminDashboard() {
         throw new Error(body.detail || "Failed to delete comment");
       }
 
-      // remove comment locally
       setCommunityPosts((prev) =>
         prev.map((p) =>
           p.id === postId
@@ -273,13 +290,43 @@ function AdminDashboard() {
     }
   }
 
+  const pageBg = isDark ? "#030712" : "#f9fafb";
+  const pageText = isDark ? "#e5e7eb" : "#111827";
+  const cardBg = isDark ? "#111827" : "#ffffff";
+  const cardShadow = isDark
+    ? "0 4px 6px -1px rgba(0,0,0,0.7), 0 2px 4px -2px rgba(0,0,0,0.9)"
+    : "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)";
+  const borderColor = isDark ? "#374151" : "#e5e7eb";
+  const subText = isDark ? "#9ca3af" : "#4b5563";
+
   if (loading) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <TopBar />
-          <h2>Admin Dashboard</h2>
-          <p>Loading...</p>
+      <div
+        className="dashboard-page"
+        style={{
+          minHeight: "100vh",
+          backgroundColor: pageBg,
+          color: pageText,
+          display: "flex",
+          justifyContent: "center",
+          padding: "1rem",
+        }}
+      >
+        <div
+          className="dashboard-card"
+          style={{
+            width: "100%",
+            maxWidth: "980px",
+            background: cardBg,
+            padding: "1.5rem",
+            borderRadius: "0.75rem",
+            boxShadow: cardShadow,
+            border: `1px solid ${borderColor}`,
+          }}
+        >
+          <TopBar isDark={isDark} />
+          <h2 style={{ color: pageText }}>Admin Dashboard</h2>
+          <p style={{ color: subText }}>Loading...</p>
         </div>
       </div>
     );
@@ -287,11 +334,32 @@ function AdminDashboard() {
 
   if (error || !data) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <TopBar />
-          <h2>Admin Dashboard</h2>
-          <p style={{ color: "#b91c1c" }}>{error || "No data"}</p>
+      <div
+        className="dashboard-page"
+        style={{
+          minHeight: "100vh",
+          backgroundColor: pageBg,
+          color: pageText,
+          display: "flex",
+          justifyContent: "center",
+          padding: "1rem",
+        }}
+      >
+        <div
+          className="dashboard-card"
+          style={{
+            width: "100%",
+            maxWidth: "980px",
+            background: cardBg,
+            padding: "1.5rem",
+            borderRadius: "0.75rem",
+            boxShadow: cardShadow,
+            border: `1px solid ${borderColor}`,
+          }}
+        >
+          <TopBar isDark={isDark} />
+          <h2 style={{ color: pageText }}>Admin Dashboard</h2>
+          <p style={{ color: "#fca5a5" }}>{error || "No data"}</p>
         </div>
       </div>
     );
@@ -300,16 +368,14 @@ function AdminDashboard() {
   const { admin, stats } = data;
 
   return (
-    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
+    <div
+      className="dashboard-page flex justify-center p-4 min-h-screen"
+      style={{
+        backgroundColor: pageBg,
+        color: pageText,
+      }}
+    >
       <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 980px;
-          background: white;
-          padding: 1.5rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
-        }
         .stats-row {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -318,20 +384,20 @@ function AdminDashboard() {
         }
         .stat-card {
           padding: 0.75rem;
-          background-color: #f9fafb;
           border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
+          border: 1px solid ${borderColor};
+          background-color: ${isDark ? "#020617" : "#f9fafb"};
         }
         .stat-card h3 {
           font-size: 0.8rem;
           font-weight: 600;
-          color: #6b7280;
+          color: ${subText};
           margin-bottom: 0.15rem;
         }
         .stat-card p {
           font-size: 1.2rem;
           font-weight: 700;
-          color: #1f2937;
+          color: ${pageText};
         }
         .primary-btn {
           padding: 0.35rem 0.8rem;
@@ -353,13 +419,17 @@ function AdminDashboard() {
           font-size: 0.85rem;
         }
         .table th, .table td {
-          border: 1px solid #e5e7eb;
+          border: 1px solid ${borderColor};
           padding: 0.4rem 0.5rem;
           text-align: left;
         }
         .table th {
-          background: #f3f4f6;
+          background: ${isDark ? "#111827" : "#f3f4f6"};
+          color: ${subText};
           font-weight: 600;
+        }
+        .table td {
+          background: ${isDark ? "#020617" : "#ffffff"};
         }
         .badge {
           display: inline-block;
@@ -373,13 +443,27 @@ function AdminDashboard() {
         .badge-rejected { background: #fee2e2; color: #b91c1c; }
       `}</style>
 
-      <div className="dashboard-card">
-        <TopBar />
+      <div
+        className="dashboard-card"
+        style={{
+          width: "100%",
+          maxWidth: "980px",
+          background: cardBg,
+          padding: "1.5rem",
+          borderRadius: "0.75rem",
+          boxShadow: cardShadow,
+          border: `1px solid ${borderColor}`,
+        }}
+      >
+        <TopBar isDark={isDark} />
 
-        <h2 className="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
-        <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>
-          {message}
-        </p>
+        <h2
+          className="text-2xl font-bold"
+          style={{ color: pageText, marginBottom: "0.25rem" }}
+        >
+          Admin Dashboard
+        </h2>
+        <p style={{ marginBottom: "0.75rem", color: subText }}>{message}</p>
 
         {error && (
           <div
@@ -430,7 +514,7 @@ function AdminDashboard() {
           {reqLoading ? (
             <p>Loading requests...</p>
           ) : requests.length === 0 ? (
-            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+            <p style={{ fontSize: "0.85rem", color: subText }}>
               No verification requests for your area yet.
             </p>
           ) : (
@@ -494,7 +578,7 @@ function AdminDashboard() {
                           <span
                             style={{
                               fontSize: "0.75rem",
-                              color: "#6b7280",
+                              color: subText,
                             }}
                           >
                             No actions
@@ -509,32 +593,38 @@ function AdminDashboard() {
           )}
         </section>
 
-        {/* Community posts in admin area with comments */}
+        {/* Community posts */}
         <section>
           <h3 className="text-xl font-semibold mb-2">
             Community posts in your area
           </h3>
           {communityError && (
-            <p style={{ color: "#b91c1c", fontSize: "0.85rem" }}>
+            <p style={{ color: "#fca5a5", fontSize: "0.85rem" }}>
               {communityError}
             </p>
           )}
           {communityLoading ? (
             <p>Loading community posts...</p>
           ) : communityPosts.length === 0 ? (
-            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
+            <p style={{ fontSize: "0.85rem", color: subText }}>
               No community posts for your area yet.
             </p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "1rem",
+              }}
+            >
               {communityPosts.map((p) => (
                 <div
                   key={p.id}
                   style={{
-                    border: "1px solid #e5e7eb",
+                    border: `1px solid ${borderColor}`,
                     borderRadius: "0.5rem",
                     padding: "0.75rem",
-                    backgroundColor: "#f9fafb",
+                    backgroundColor: isDark ? "#020617" : "#f9fafb",
                   }}
                 >
                   <div
@@ -550,7 +640,7 @@ function AdminDashboard() {
                       <div
                         style={{
                           fontSize: "0.8rem",
-                          color: "#6b7280",
+                          color: subText,
                         }}
                       >
                         {p.category_label} · by {p.author} ·{" "}
@@ -567,11 +657,21 @@ function AdminDashboard() {
                     </button>
                   </div>
 
-                  <div style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>
+                  <div
+                    style={{
+                      fontSize: "0.85rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  >
                     {p.description}
                   </div>
 
-                  <div style={{ fontSize: "0.8rem", color: "#4b5563" }}>
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      color: subText,
+                    }}
+                  >
                     {p.comments?.length || 0} comments · {p.likes_count} likes ·{" "}
                     {p.dislikes_count} dislikes
                   </div>
@@ -580,7 +680,7 @@ function AdminDashboard() {
                     <div
                       style={{
                         marginTop: "0.5rem",
-                        borderTop: "1px solid #e5e7eb",
+                        borderTop: `1px solid ${borderColor}`,
                         paddingTop: "0.5rem",
                       }}
                     >
@@ -593,7 +693,13 @@ function AdminDashboard() {
                       >
                         Comments
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.25rem",
+                        }}
+                      >
                         {p.comments.map((c) => (
                           <div
                             key={c.id}
@@ -602,14 +708,16 @@ function AdminDashboard() {
                               justifyContent: "space-between",
                               alignItems: "center",
                               fontSize: "0.8rem",
-                              backgroundColor: "#ffffff",
+                              backgroundColor: isDark ? "#020617" : "#ffffff",
                               borderRadius: "0.25rem",
                               padding: "0.25rem 0.5rem",
-                              border: "1px solid #e5e7eb",
+                              border: `1px solid ${borderColor}`,
                             }}
                           >
                             <div>
-                              <span style={{ fontWeight: 600 }}>{c.author}</span>
+                              <span style={{ fontWeight: 600 }}>
+                                {c.author}
+                              </span>
                               {": "}
                               <span>{c.text}</span>
                               <div
