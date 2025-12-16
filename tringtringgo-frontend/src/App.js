@@ -20,6 +20,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 
 // Services
 import Services from "./Services";
+import AdminServices from "./pages/AdminServices";
 
 // chatbot (floating widget)
 import ChatWidget from "./chatbot/ChatWidget";
@@ -51,6 +52,7 @@ function App() {
           <Route path="/explore" element={<ExplorePage />} />
           <Route path="/community" element={<CommunityFeed />} />
           <Route path="/services" element={<Services />} />
+          <Route path="/admin/services" element={<AdminServices />} />
 
           {/* dashboards */}
           <Route path="/traveler" element={<TravelerDashboard />} />
@@ -63,7 +65,7 @@ function App() {
       </Routes>
 
       {/* floating AI chatbot widget, always available */}
-      <ChatWidget />
+      {/*<ChatWidget />*/}
     </Router>
   );
 }

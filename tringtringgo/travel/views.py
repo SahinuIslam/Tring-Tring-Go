@@ -8,6 +8,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+# You can remove IsAdminUser if not used anywhere else
+from rest_framework.permissions import IsAdminUser
+from .models import Service
+from .serializers import ServiceSerializer
+
 from accounts.models import UserAccount, MerchantProfile
 from accounts.views import get_or_create_traveler_profile
 from .models import Place, SavedPlace, Review, Area
@@ -16,8 +21,8 @@ from .serializers import (
     PlaceSerializer,
     ReviewSerializer,
     MerchantProfileSerializer,  # you must define this in travel/serializers.py
+    ServiceSerializer,
 )
-
 
 def _get_traveler_from_token(request):
     token = request.headers.get("X-User-Token")
@@ -43,9 +48,7 @@ def _get_traveler_from_token(request):
     traveler_profile = get_or_create_traveler_profile(account)
     return account, None
 
-
 # ---------- Saved places ----------
-
 
 @csrf_exempt
 @api_view(["GET"])
@@ -62,7 +65,6 @@ def list_saved_places(request):
     )
     serializer = SavedPlaceSerializer(saved_qs, many=True)
     return Response(serializer.data)
-
 
 @csrf_exempt
 @api_view(["POST"])
@@ -99,7 +101,6 @@ def add_saved_place(request):
     serializer = SavedPlaceSerializer(saved)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-
 @csrf_exempt
 @api_view(["DELETE"])
 @permission_classes([AllowAny])
@@ -119,9 +120,7 @@ def remove_saved_place(request, pk):
     saved.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
-
 # ---------- Reviews ----------
-
 
 @csrf_exempt
 @api_view(["GET"])
@@ -134,7 +133,6 @@ def my_reviews(request):
     qs = Review.objects.filter(traveler=traveler).select_related("place")
     serializer = ReviewSerializer(qs, many=True)
     return Response(serializer.data)
-
 
 @csrf_exempt
 @api_view(["POST"])
@@ -180,7 +178,6 @@ def create_review(request):
     out = ReviewSerializer(review)
     return Response(out.data, status=status.HTTP_201_CREATED)
 
-
 @csrf_exempt
 @api_view(["DELETE"])
 @permission_classes([AllowAny])
@@ -202,7 +199,6 @@ def delete_review(request, pk):
     place.recompute_rating()
 
     return Response(status=status.HTTP_204_NO_CONTENT)
-
 
 @csrf_exempt
 @api_view(["PUT", "PATCH"])
@@ -248,9 +244,7 @@ def update_review(request, pk):
     serializer = ReviewSerializer(review)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-
 # ---------- Places / Areas ----------
-
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -259,7 +253,6 @@ def list_places(request):
     serializer = PlaceSerializer(qs, many=True)
     return Response(serializer.data)
 
-
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def list_areas(request):
@@ -267,9 +260,84 @@ def list_areas(request):
     data = [{"id": a.id, "name": a.name} for a in qs]
     return Response(data)
 
+#----------- Service by area --------------
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def list_services(request):
+    """
+    Return services, optionally filtered by ?area_id=.
+    """
+    qs = Service.objects.select_related("area").order_by("area__name", "category", "name")
+
+    area_id = request.GET.get("area_id")
+    if area_id:
+        qs = qs.filter(area_id=area_id)
+
+    serializer = ServiceSerializer(qs, many=True)
+    return Response(serializer.data)
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+def create_service(request):
+    # Authenticate using header-based helper
+    account, error = _get_traveler_from_token(request)
+    if error:
+        return error
+
+    # Only ADMIN role can create services
+    if account.role != "ADMIN":
+        return Response(
+            {"detail": "Only admin users can create services."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    serializer = ServiceSerializer(data=request.data)
+    if serializer.is_valid():
+        service = serializer.save()
+        return Response(
+            ServiceSerializer(service).data,
+            status=status.HTTP_201_CREATED,
+        )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(["PUT", "PATCH", "DELETE"])
+@permission_classes([AllowAny])
+def modify_service(request, pk):
+    account, error = _get_traveler_from_token(request)
+    if error:
+        return error
+
+    if account.role != "ADMIN":
+        return Response(
+            {"detail": "Only admin users can modify services."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        service = Service.objects.get(pk=pk)
+    except Service.DoesNotExist:
+        return Response(
+            {"detail": "Service not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if request.method in ["PUT", "PATCH"]:
+        serializer = ServiceSerializer(
+            service,
+            data=request.data,
+            partial=(request.method == "PATCH"),
+        )
+        if serializer.is_valid():
+            service = serializer.save()
+            return Response(ServiceSerializer(service).data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # DELETE
+    service.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 # ---------- Explore merchants by area ----------
-
 
 @api_view(["GET"])
 @permission_classes([AllowAny])

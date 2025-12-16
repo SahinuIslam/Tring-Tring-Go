@@ -2,11 +2,25 @@ import React, { useEffect, useState } from "react";
 
 function Services() {
   const [services, setServices] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [selectedCategory, setSelectedCategory] = useState("ALL");
   const [selectedService, setSelectedService] = useState(null);
+  const [selectedAreaId, setSelectedAreaId] = useState("ALL");
+
+  // Read current user info (including role/mode) from localStorage
+  const storedUser = localStorage.getItem("ttg_user");
+  const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+  const userRole = parsedUser?.role || parsedUser?.mode || null;
+
+  useEffect(() => {
+    // when user changes (traveler -> merchant), reset filters
+    setSelectedAreaId("ALL");
+    setSelectedCategory("ALL");
+    setSelectedService(null);
+  }, [userRole]);
 
   // Basic categories you mentioned
   const categories = [
@@ -18,6 +32,24 @@ function Services() {
     { key: "TRANSPORT", label: "Transport hubs" },
   ];
 
+  // Load areas once
+  useEffect(() => {
+    async function loadAreas() {
+      try {
+        const resp = await fetch(
+          "http://127.0.0.1:8000/api/travel/areas/"
+        );
+        if (!resp.ok) return;
+        const data = await resp.json();
+        setAreas(data); // each item: {id, name}
+      } catch (e) {
+        console.error("Areas load error:", e);
+      }
+    }
+    loadAreas();
+  }, []);
+
+  // Load services whenever area filter changes
   useEffect(() => {
     async function loadServices() {
       try {
@@ -28,13 +60,18 @@ function Services() {
         const parsed = stored ? JSON.parse(stored) : null;
         const token = parsed?.token || parsed?.username || "";
 
-        const resp = await fetch(
-          "http://127.0.0.1:8000/api/travel/services/",
-          {
-            method: "GET",
-            headers: token ? { "X-User-Token": token } : {},
-          }
-        );
+        const params = new URLSearchParams();
+        if (selectedAreaId !== "ALL") {
+          params.append("area_id", selectedAreaId);
+        }
+        const url = `http://127.0.0.1:8000/api/travel/services/${
+          params.toString() ? "?" + params.toString() : ""
+        }`;
+
+        const resp = await fetch(url, {
+          method: "GET",
+          headers: token ? { "X-User-Token": token } : {},
+        });
 
         if (!resp.ok) {
           const body = await resp.json().catch(() => ({}));
@@ -43,6 +80,7 @@ function Services() {
 
         const data = await resp.json();
         setServices(data);
+        setSelectedService(null);
       } catch (e) {
         console.error("Services load error:", e);
         setError(e.message);
@@ -51,14 +89,67 @@ function Services() {
       }
     }
 
+    // Load for travelers and merchants; block only admins
+    if (userRole === "ADMIN") {
+      setLoading(false);
+      return;
+    }
+
     loadServices();
-  }, []);
+  }, [selectedAreaId, userRole]);
 
   const filteredServices =
     selectedCategory === "ALL"
       ? services
       : services.filter((s) => s.category === selectedCategory);
 
+  // Build a Google Maps URL for the currently selected service
+  const hasCoords =
+    selectedService &&
+    selectedService.latitude != null &&
+    selectedService.longitude != null;
+
+  const mapsUrl =
+    selectedService &&
+    (hasCoords
+      ? `https://www.google.com/maps/search/?api=1&query=${selectedService.latitude},${selectedService.longitude}`
+      : selectedService.address
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          selectedService.address
+        )}`
+      : null);
+
+  // Role-based rendering
+
+  // Not logged in or no role
+  if (!userRole) {
+    return (
+      <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
+        <div className="dashboard-card">
+          <h2 className="text-xl font-semibold text-gray-800">Services</h2>
+          <p className="text-sm text-gray-600">
+            Please log in as a traveler or merchant to view nearby services.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin: tell them to use admin services page
+  if (userRole === "ADMIN") {
+    return (
+      <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
+        <div className="dashboard-card">
+          <h2 className="text-xl font-semibold text-gray-800">Services</h2>
+          <p className="text-sm text-gray-600">
+            Services can be managed from the admin services page.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Traveler / Merchant view (full UI)
   return (
     <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
       <style>{`
@@ -118,6 +209,41 @@ function Services() {
           pharmacies and transport hubs around your travel area.
         </p>
 
+        {/* Area filter */}
+        <div style={{ marginBottom: "0.75rem" }}>
+          <label
+            style={{
+              display: "block",
+              fontSize: "0.85rem",
+              color: "#4b5563",
+              marginBottom: "0.25rem",
+            }}
+          >
+            Filter by area
+          </label>
+          <select
+            value={selectedAreaId}
+            onChange={(e) => {
+              setSelectedAreaId(e.target.value);
+              setSelectedCategory("ALL");
+              setSelectedService(null);
+            }}
+            style={{
+              padding: "0.4rem 0.6rem",
+              borderRadius: "0.5rem",
+              border: "1px solid #e5e7eb",
+              fontSize: "0.9rem",
+            }}
+          >
+            <option value="ALL">All areas</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Category filters */}
         <div
           style={{
@@ -131,7 +257,10 @@ function Services() {
             <button
               key={c.key}
               type="button"
-              onClick={() => setSelectedCategory(c.key)}
+              onClick={() => {
+                setSelectedCategory(c.key);
+                setSelectedService(null);
+              }}
               className={
                 "services-category-chip" +
                 (selectedCategory === c.key ? " active" : "")
@@ -162,7 +291,7 @@ function Services() {
             >
               {filteredServices.length === 0 ? (
                 <p style={{ color: "#6b7280" }}>
-                  No services found for this category.
+                  No services found for this selection.
                 </p>
               ) : (
                 filteredServices.map((s) => (
@@ -299,13 +428,30 @@ function Services() {
                       padding: "0.75rem",
                       color: "#4b5563",
                       fontSize: "0.9rem",
+                      gap: "0.5rem",
                     }}
                   >
-                    Map placeholder: show location of{" "}
-                    <strong style={{ marginLeft: "0.25rem" }}>
-                      {selectedService.name}
-                    </strong>{" "}
-                    here using latitude/longitude from backend.
+                    {mapsUrl ? (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          padding: "0.4rem 0.8rem",
+                          borderRadius: "999px",
+                          backgroundColor: "#111827",
+                          color: "#f9fafb",
+                          fontSize: "0.85rem",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Open in Google Maps
+                      </a>
+                    ) : (
+                      <span>
+                        No location data available for this service.
+                      </span>
+                    )}
                   </div>
 
                   <div>

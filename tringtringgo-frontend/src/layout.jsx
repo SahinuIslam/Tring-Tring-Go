@@ -1,7 +1,8 @@
-import { Outlet } from "react-router-dom"; //unified topbar for all pages
+import { Outlet } from "react-router-dom"; // unified topbar for all pages
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import ChatPanel from "./ChatPanel";
+import ChatWidget from "./chatbot/ChatWidget";
 
 function Layout({ children }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -10,6 +11,7 @@ function Layout({ children }) {
   const stored = localStorage.getItem("ttg_user");
   const parsed = stored ? JSON.parse(stored) : null;
   const isLoggedIn = !!parsed;
+  const mode = parsed?.mode || ""; // "TRAVELER" / "MERCHANT" / "ADMIN"
 
   const isActive = (path) => location.pathname.startsWith(path);
 
@@ -55,42 +57,56 @@ function Layout({ children }) {
           >
             Community
           </Link>
-          <Link
-            className={isActive("/services") ? "nav-link active" : "nav-link"}
-            to="/services"
-          >
-            Services
-          </Link>
+
+          {/* Services link: admin -> /admin/services, others -> /services */}
+          {parsed?.mode === "ADMIN" ? (
+            <Link
+              className={
+                isActive("/admin/services") ? "nav-link active" : "nav-link"
+              }
+              to="/admin/services"
+            >
+              Services
+            </Link>
+          ) : (
+            <Link
+              className={isActive("/services") ? "nav-link active" : "nav-link"}
+              to="/services"
+            >
+              Services
+            </Link>
+          )}
+
           <Link
             className={isActive("/settings") ? "nav-link active" : "nav-link"}
             to="/settings"
           >
             Settings
           </Link>
-          {/* REPLACE your single Dashboard link with: */}
-{parsed?.mode === "MERCHANT" ? (
-  <Link
-    className={isActive("/merchant") ? "nav-link active" : "nav-link"}
-    to="/merchant"
-  >
-    Dashboard
-  </Link>
-) : parsed?.mode === "ADMIN" ? (
-  <Link
-    className={isActive("/admin") ? "nav-link active" : "nav-link"}
-    to="/admin"
-  >
-    Dashboard
-  </Link>
-) : (
-  <Link
-    className={isActive("/traveler") ? "nav-link active" : "nav-link"}
-    to="/traveler"
-  >
-    Dashboard
-  </Link>
-)}
 
+          {/* Dashboard link depends on mode */}
+          {parsed?.mode === "MERCHANT" ? (
+            <Link
+              className={isActive("/merchant") ? "nav-link active" : "nav-link"}
+              to="/merchant"
+            >
+              Dashboard
+            </Link>
+          ) : parsed?.mode === "ADMIN" ? (
+            <Link
+              className={isActive("/admin") ? "nav-link active" : "nav-link"}
+              to="/admin"
+            >
+              Dashboard
+            </Link>
+          ) : (
+            <Link
+              className={isActive("/traveler") ? "nav-link active" : "nav-link"}
+              to="/traveler"
+            >
+              Dashboard
+            </Link>
+          )}
 
           {isLoggedIn ? (
             <>
@@ -131,11 +147,16 @@ function Layout({ children }) {
       </header>
 
       <main className="main-content">
-      <Outlet /> 
-        </main>
+        <Outlet />
+      </main>
 
       {isLoggedIn && isChatOpen && (
         <ChatPanel onClose={() => setIsChatOpen(false)} />
+      )}
+
+      {/* Floating chatbot: only for logged-in TRAVELER or MERCHANT */}
+      {isLoggedIn && (mode === "TRAVELER" || mode === "MERCHANT") && (
+        <ChatWidget />
       )}
     </div>
   );

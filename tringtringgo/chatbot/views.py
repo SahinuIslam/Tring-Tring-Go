@@ -1,134 +1,340 @@
-from rest_framework.decorators import api_view
+# chatbot/views.py
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from .models import Place, Hospital, PoliceStation, ATM, Pharmacies, Transport, ChatMessage
-from .serializers import PlaceSerializer, HospitalSerializer, PoliceStationSerializer, ATMSerializer, PharmaciesSerializer, TransportSerializer, ChatMessageSerializer
-from django.db.models import Q
+from django.db.models import Avg
 
-@api_view(['GET'])
-def top_places(request):
-    places = Place.objects.order_by('-rating')[:10]
-    return Response(PlaceSerializer(places, many=True).data)
+from .models import ChatMessage
+from travel.models import Service, Place, Review  # adjust if your review model is named differently
 
-@api_view(['GET'])
-def places_search(request):
-    q = request.GET.get('q','')
-    places = Place.objects.filter(Q(name__icontains=q) | Q(area__icontains=q)).order_by('-rating')[:10]
-    return Response(PlaceSerializer(places, many=True).data)
 
-@api_view(['GET'])
-def hospitals_near(request):
-    area = request.GET.get('area','')
-    hospitals = Hospital.objects.filter(area__icontains=area)[:10]
-    return Response(HospitalSerializer(hospitals, many=True).data)
+def extract_area(text, keyword="near"):
+    """
+    Extract area name after the word 'near'.
+    Example: 'hospitals near Dhanmondi' -> 'Dhanmondi'
+    """
+    parts = text.split(keyword, 1)
+    if len(parts) < 2:
+        return ""
+    return parts[1].strip()
 
-@api_view(['GET'])
-def police_near(request):
-    area = request.GET.get('area','')
-    stations = PoliceStation.objects.filter(area__icontains=area)[:10]
-    return Response(PoliceStationSerializer(stations, many=True).data)
 
-@api_view(['GET'])
-def atm_near(request):
-    area = request.GET.get('area','')
-    offices = ATM.objects.filter(area__icontains=area)[:10]
-    return Response(ATMSerializer(offices, many=True).data)
+def format_service_detail(s: Service, index: int | None = None) -> str:
+    """
+    Return a numbered, multi-line string with full service details.
 
-@api_view(['GET'])
-def pharmacies_near(request):
-    area = request.GET.get('area','')
-    offices = Pharmacies.objects.filter(area__icontains=area)[:10]
-    return Response(PharmaciesSerializer(offices, many=True).data)
+    Example:
+    1. Apollo Hospital
+       Area: Dhanmondi
+       Address: ...
+       Phone: ...
+    """
+    lines = []
 
-@api_view(['GET'])
-def transport_near(request):
-    area = request.GET.get('area','')
-    offices = Transport.objects.filter(area__icontains=area)[:10]
-    return Response(TransportSerializer(offices, many=True).data)
+    if index is not None:
+        lines.append(f"{index}. {s.name}")
+    else:
+        lines.append(s.name)
 
-@api_view(['POST'])
+    # Area
+    area_line = None
+    try:
+        if s.area and getattr(s.area, "name", None):
+            area_line = f"Area: {s.area.name}"
+    except Exception:
+        pass
+    if not area_line and getattr(s, "area_name", None):
+        area_line = f"Area: {s.area_name}"
+    if area_line:
+        lines.append(f"   {area_line}")
+
+    # Optional fields (change names if your model is different)
+    if getattr(s, "address", None):
+        lines.append(f"   Address: {s.address}")
+    if getattr(s, "phone", None):
+        lines.append(f"   Phone: {s.phone}")
+    if getattr(s, "open_hours", None):
+        lines.append(f"   Open hours: {s.open_hours}")
+    if getattr(s, "notes", None):
+        lines.append(f"   Notes: {s.notes}")
+
+    return "\n".join(lines)
+
+
+def format_place_detail(p: Place, index: int | None = None, avg: float | None = None) -> str:
+    """
+    Return a numbered, multi-line string with place details.
+
+    Example:
+    1. Dhanmondi Lake
+       Category: Park
+       Area: Dhanmondi
+       Rating: 4.5 stars ★★★★☆
+    """
+    lines = []
+
+    # First line: number + name
+    if index is not None:
+        lines.append(f"{index}. {p.name}")
+    else:
+        lines.append(p.name)
+
+    # Category
+    try:
+        category = p.get_category_display()
+    except Exception:
+        category = "Place"
+    lines.append(f"   Category: {category}")
+
+    # Area
+    try:
+        area_name = p.area.name
+    except Exception:
+        area_name = ""
+    if area_name:
+        lines.append(f"   Area: {area_name}")
+
+    # Rating
+    if avg is not None:
+        avg_str = f"{avg:.1f}"
+        full_stars = int(round(avg))
+        full_stars = min(max(full_stars, 0), 5)
+        stars = "★" * full_stars + "☆" * (5 - full_stars)
+        lines.append(f"   Rating: {avg_str} stars {stars}")
+
+    # Optional description/notes if your Place model has it
+    if getattr(p, "description", None):
+        lines.append(f"   About: {p.description}")
+
+    return "\n".join(lines)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
 def chat(request):
-    data = request.data
-    message = data.get('message', '').strip()
+    message = request.data.get("message", "").strip()
     if not message:
-        return Response({'reply': 'Please send a message.'})
+        return Response({"reply": "Please send a message."})
 
     # save user message
-    ChatMessage.objects.create(role='user', message=message)
+    ChatMessage.objects.create(role="user", message=message)
 
     text = message.lower()
 
-    # top places
-    if any(k in text for k in ['top place', 'top places', 'top-rated', 'top recommended']):
-        places = Place.objects.order_by('-rating')[:5]
-        if places:
-            reply_lines = [f"{p.name} — rating: {p.rating}" for p in places]
-            reply = "Top places:\n" + "\n".join(reply_lines)
+    # -------------------------------------------------
+    # HISTORY (check before greetings so 'history' is not caught as 'hi')
+    # -------------------------------------------------
+    if "show history" in text or text.strip() == "history":
+        msgs = ChatMessage.objects.order_by("-created_at")[:50]
+        if not msgs:
+            reply = "No chat history yet."
+        else:
+            lines = [f"{m.role}: {m.message}" for m in reversed(msgs)]
+            reply = "\n".join(lines)
+
+    # -------------------------------------------------
+    # GREETINGS / HELP
+    # -------------------------------------------------
+    elif text.strip() in ("hi", "hello", "hey"):
+        reply = (
+            "👋 Hello! I’m here to help you find services and locations in your area. "
+            "For a list of available commands, type help."
+        )
+
+    elif "help" in text:
+        reply = (
+            "You can try commands like:\n"
+            "- hospitals near <area>\n"
+            "- police near <area>\n"
+            "- atm near <area>\n"
+            "- pharmacy near <area>\n"
+            "- transport near <area>\n"
+            "- places near <area>\n"
+            "- top places\n"
+            "- all hospitals / all atms / all police etc.\n"
+            "- show history"
+        )
+
+    # -------------------------------------------------
+    # TOP PLACES (by average review stars) — numbered, detailed
+    # -------------------------------------------------
+    elif "top places" in text or ("top" in text and "places" in text):
+        qs = (
+            Place.objects
+            .annotate(avg_rating=Avg("reviews__rating"))
+            .order_by("-avg_rating")
+        )[:10]
+
+        if qs:
+            lines = []
+            for idx, p in enumerate(qs, start=1):
+                avg = p.avg_rating if p.avg_rating is not None else 0
+                detail = format_place_detail(p, index=idx, avg=avg)
+                lines.append(detail)
+            reply = "Top places by rating:\n\n" + "\n\n".join(lines)
+        else:
+            reply = "No places with reviews found."
+
+    # -------------------------------------------------
+    # ALL PLACES (no area filter) — numbered
+    # -------------------------------------------------
+    elif "all places" in text or (text.strip() == "places"):
+        qs = Place.objects.all()[:50]
+        if qs:
+            lines = []
+            for idx, p in enumerate(qs, start=1):
+                detail = format_place_detail(p, index=idx, avg=None)
+                lines.append(detail)
+            reply = "All places:\n\n" + "\n\n".join(lines)
         else:
             reply = "No places found."
 
-    # hospitals near <area>
-    elif 'hospital' in text and 'near' in text:
-        area = text.split('near')[-1].strip()
-        hospitals = Hospital.objects.filter(area__icontains=area)[:10]
-        if hospitals:
-            reply = 'Hospitals near ' + area + ': ' + ', '.join(h.name for h in hospitals)
+    # -------------------------------------------------
+    # ALL SERVICES BY TYPE (NO AREA) — numbered, detailed
+    # -------------------------------------------------
+    elif "all hospitals" in text or (("hospital" in text or "hospitals" in text) and "near" not in text):
+        qs = Service.objects.filter(category="HOSPITAL")[:20]
+        if qs:
+            items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+            reply = "All hospitals:\n\n" + "\n\n".join(items)
         else:
-            reply = f'No hospitals found near {area}.'
+            reply = "No hospitals found."
 
-    # police near <area>
-    elif 'police' in text and 'near' in text:
-        area = text.split('near')[-1].strip()
-        stations = PoliceStation.objects.filter(area__icontains=area)[:10]
-        if stations:
-            reply = 'Police stations near ' + area + ': ' + ', '.join(s.name for s in stations)
+    elif "all police" in text or ("police" in text and "near" not in text):
+        qs = Service.objects.filter(category="POLICE")[:20]
+        if qs:
+            items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+            reply = "All police stations:\n\n" + "\n\n".join(items)
         else:
-            reply = f'No police stations found near {area}.'
+            reply = "No police stations found."
 
-    # ATM near <area>
-    elif 'atm' in text and 'near' in text:
-        area = text.split('near')[-1].strip()
-        atms = ATM.objects.filter(area__icontains=area)[:10]
-        if atms:
-            reply = 'ATMs near ' + area + ': ' + ', '.join(a.name for a in atms)
+    elif "all atms" in text or ("atm" in text and "near" not in text):
+        qs = Service.objects.filter(category="ATM")[:20]
+        if qs:
+            items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+            reply = "All ATMs:\n\n" + "\n\n".join(items)
         else:
-            reply = f'No ATMs found near {area}.'
+            reply = "No ATMs found."
 
-    # pharmacy near <area>
-    elif ('pharmacy' in text or 'pharmacies' in text) and 'near' in text:
-        area = text.split('near')[-1].strip()
-        pharms = Pharmacies.objects.filter(area__icontains=area)[:10]
-        if pharms:
-            reply = 'Pharmacies near ' + area + ': ' + ', '.join(p.name for p in pharms)
+    elif "all pharmacies" in text or ("pharmacy" in text and "near" not in text):
+        qs = Service.objects.filter(category="PHARMACY")[:20]
+        if qs:
+            items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+            reply = "All pharmacies:\n\n" + "\n\n".join(items)
         else:
-            reply = f'No pharmacies found near {area}.'
+            reply = "No pharmacies found."
 
-    # transport near <area>
-    elif 'transport' in text and 'near' in text:
-        area = text.split('near')[-1].strip()
-        transports = Transport.objects.filter(area__icontains=area)[:10]
-        if transports:
-            reply = 'Transport hubs near ' + area + ': ' + ', '.join(t.name for t in transports)
+    elif "all transport" in text or ("transport" in text and "near" not in text):
+        qs = Service.objects.filter(category="TRANSPORT")[:20]
+        if qs:
+            items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+            reply = "All transport hubs:\n\n" + "\n\n".join(items)
         else:
-            reply = f'No transport hubs found near {area}.'
+            reply = "No transport hubs found."
 
-    # history
-    elif 'history' in text or 'show history' in text:
-        msgs = ChatMessage.objects.order_by('-created_at')[:50]
-        reply = '\n'.join(f"{m.role}: {m.message}" for m in reversed(msgs))
+    # -------------------------------------------------
+    # SERVICES NEAR AREA — numbered, detailed
+    # -------------------------------------------------
+    elif "hospital" in text and "near" in text:
+        area = extract_area(text)
+        if not area:
+            reply = "Please specify an area after 'near', e.g. 'hospitals near Dhanmondi'."
+        else:
+            qs = Service.objects.filter(category="HOSPITAL", area__name__icontains=area)[:10]
+            if qs:
+                items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+                reply = "Hospitals near " + area + ":\n\n" + "\n\n".join(items)
+            else:
+                reply = f"No hospitals found near {area}."
 
-    # default fallback
+    elif "police" in text and "near" in text:
+        area = extract_area(text)
+        if not area:
+            reply = "Please specify an area after 'near', e.g. 'police near Dhanmondi'."
+        else:
+            qs = Service.objects.filter(category="POLICE", area__name__icontains=area)[:10]
+            if qs:
+                items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+                reply = "Police stations near " + area + ":\n\n" + "\n\n".join(items)
+            else:
+                reply = f"No police stations found near {area}."
+
+    elif "atm" in text and "near" in text:
+        area = extract_area(text)
+        if not area:
+            reply = "Please specify an area after 'near', e.g. 'atm near Dhanmondi'."
+        else:
+            qs = Service.objects.filter(category="ATM", area__name__icontains=area)[:10]
+            if qs:
+                items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+                reply = "ATMs near " + area + ":\n\n" + "\n\n".join(items)
+            else:
+                reply = f"No ATMs found near {area}."
+
+    elif ("pharmacy" in text or "pharmacies" in text) and "near" in text:
+        area = extract_area(text)
+        if not area:
+            reply = "Please specify an area after 'near', e.g. 'pharmacy near Dhanmondi'."
+        else:
+            qs = Service.objects.filter(category="PHARMACY", area__name__icontains=area)[:10]
+            if qs:
+                items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+                reply = "Pharmacies near " + area + ":\n\n" + "\n\n".join(items)
+            else:
+                reply = f"No pharmacies found near {area}."
+
+    elif "transport" in text and "near" in text:
+        area = extract_area(text)
+        if not area:
+            reply = "Please specify an area after 'near', e.g. 'transport near Dhanmondi'."
+        else:
+            qs = Service.objects.filter(category="TRANSPORT", area__name__icontains=area)[:10]
+            if qs:
+                items = [format_service_detail(s, index=i) for i, s in enumerate(qs, start=1)]
+                reply = "Transport hubs near " + area + ":\n\n" + "\n\n".join(items)
+            else:
+                reply = f"No transport hubs found near {area}."
+
+    # -------------------------------------------------
+    # PLACES NEAR AREA — numbered, detailed
+    # -------------------------------------------------
+    elif "places" in text and "near" in text:
+        area = extract_area(text)
+        if not area:
+            reply = "Please specify an area after 'near', e.g. 'places near Dhanmondi'."
+        else:
+            qs = (
+                Place.objects
+                .filter(area__name__icontains=area)
+                .annotate(avg_rating=Avg("reviews__rating"))
+            )[:10]
+            if qs:
+                lines = []
+                for idx, p in enumerate(qs, start=1):
+                    avg = p.avg_rating if p.avg_rating is not None else None
+                    detail = format_place_detail(p, index=idx, avg=avg)
+                    lines.append(detail)
+                reply = "Places near " + area + ":\n\n" + "\n\n".join(lines)
+            else:
+                reply = f"No places found near {area}."
+
+    # -------------------------------------------------
+    # DEFAULT FALLBACK
+    # -------------------------------------------------
     else:
         reply = (
             "Sorry, I didn't understand. Try commands like:\n"
+            "- hospitals near <area>\n"
+            "- police near <area>\n"
+            "- atm near <area>\n"
+            "- pharmacy near <area>\n"
+            "- transport near <area>\n"
+            "- places near <area>\n"
             "- top places\n"
-            "- hospital near <place>\n"
-            "- police near <place>\n"
-            "- atm near <place>\n"
-            "- pharmacy near <place>\n"
-            "- transport near <place>\n"
-            "Or use /api/places-search?q=... ."
+            "- all hospitals / all atms / all pharmacies / all police / all transport\n"
+            "- show history"
         )
 
     # save bot reply
-    ChatMessage.objects.create(role='bot', message=reply)
-    return Response({'reply': reply})
+    ChatMessage.objects.create(role="bot", message=reply)
+    return Response({"reply": reply})

@@ -18,7 +18,7 @@ body {
 /* Header */
 .chatbot-header {
   padding: 12px 16px;
-  background: linear-gradient(135deg, #00c9ab, #00c9ab);
+  background: linear-gradient(135deg, #089882, #089882);
   color: #ffffff;
   display: flex;
   align-items: center;
@@ -41,6 +41,10 @@ body {
   padding: 12px 10px 8px;
   background: #f3f4f6;
   overflow-y: auto;
+
+  /* NEW: vertical stacking of messages */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Scrollbar (optional) */
@@ -56,13 +60,15 @@ body {
 .chat-message {
   max-width: 80%;
   padding: 8px 12px;
-  margin-bottom: 16px;        /* vertical gap between any two messages */
+  margin-bottom: 16px;       /* vertical gap between any two messages */
   border-radius: 16px;
   font-size: 14px;
   line-height: 1.4;
   position: relative;
-  display: inline-block;
-  clear: both;
+
+  /* CHANGED: each bubble is its own flex item row */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Bot on left */
@@ -71,16 +77,14 @@ body {
   color: #111827;
   border-bottom-left-radius: 4px;
   align-self: flex-start;
-  margin-right: 60px;         /* space from right side (separates from user bubble) */
 }
 
 /* User on right */
 .chat-message.user {
-  background: #00c9ab;
+  background: #089882;
   color: #ffffff;
   border-bottom-right-radius: 4px;
-  margin-left: 60px;          /* space from left side (separates from bot bubble) */
-  margin-left: auto;
+  align-self: flex-end;
 }
 
 /* Inner text wrapper */
@@ -129,15 +133,57 @@ body {
   font-size: 13px;
   font-weight: 500;
   color: #ffffff;
-  background: #ff0303;
+  background: #00c9ab;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.05s ease;
 }
 
 .chatbot-input button:hover {
-  background: #00c9ab;
+  background: #089882;
 }
 
 .chatbot-input button:active {
   transform: scale(0.97);
+}
+
+/* Floating action button (if you use .chatbot-fab class) */
+.chatbot-fab {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 9999px;
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.35);
+  transition: all 0.25s ease;
+  z-index: 51;
+}
+
+.chatbot-fab:hover {
+  background-color: #1d4ed8;
+}
+
+.chatbot-fab:active {
+  transform: scale(0.96);
+}
+.chat-action-btn {
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: none;
+  background-color: #2563eb;
+  color: #ffffff;
+  cursor: pointer;
+}
+.chat-action-btn:hover {
+  background-color: #1d4ed8;
 }

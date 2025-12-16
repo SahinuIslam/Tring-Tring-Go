@@ -10,11 +10,20 @@ from .views import (
     update_review,
     list_areas,
     explore_merchants,
+    list_services,
+    create_service,      
+    modify_service,
 )
+
 
 urlpatterns = [
     # places
     path("places/", list_places, name="place-list"),
+
+    # services
+    path("services/", list_services, name="service-list"),
+    path("services/create/", create_service, name="service-create"),
+    path("services/<int:pk>/", modify_service, name="service-modify"),
 
     # saved places
     path("saved-places/", list_saved_places, name="saved-place-list"),

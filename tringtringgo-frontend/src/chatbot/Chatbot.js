@@ -1,4 +1,4 @@
-// Chatbot.js
+// src/chatbot/Chatbot.js
 import React, { useState, useRef, useEffect } from "react";
 import { chatApi } from "./api";
 import "./styles.css";
@@ -6,6 +6,7 @@ import "./styles.css";
 export default function Chatbot() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
+  const [hasChatted, setHasChatted] = useState(false);
   const boxRef = useRef();
 
   useEffect(() => {
@@ -15,16 +16,24 @@ export default function Chatbot() {
   const send = async () => {
     const text = input.trim();
     if (!text) return;
-    setMessages((prev) => [...prev, { sender: "user", text }]);
+
     setInput("");
+    setHasChatted(true);
+
     try {
       const res = await chatApi(text);
-      const bot = res.reply || "No reply from server";
-      setMessages((prev) => [...prev, { sender: "bot", text: bot }]);
+      const bot = typeof res.reply === "string" ? res.reply : "No reply from server";
+
+      setMessages((prev) => [
+        ...prev,
+        { sender: "user", text },
+        { sender: "bot", text: bot },
+      ]);
     } catch (err) {
       console.error(err);
       setMessages((prev) => [
         ...prev,
+        { sender: "user", text },
         { sender: "bot", text: "Error contacting server" },
       ]);
     }
@@ -45,9 +54,7 @@ export default function Chatbot() {
         {messages.map((m, idx) => (
           <div
             key={idx}
-            className={`chat-message ${
-              m.sender === "user" ? "user" : "bot"
-            }`}
+            className={`chat-message ${m.sender === "user" ? "user" : "bot"}`}
           >
             <div className="chat-text">
               {m.text.split("\n").map((line, i) => (
@@ -64,7 +71,9 @@ export default function Chatbot() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Ask about places, hospitals, police, post office..."
+          placeholder={
+            hasChatted ? "Type your message..." : "👋 Start by saying hi..."
+          }
         />
         <button onClick={send}>Send</button>
       </div>
