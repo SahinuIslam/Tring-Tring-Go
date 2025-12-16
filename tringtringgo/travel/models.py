@@ -1,0 +1,166 @@
+from django.db import models
+from accounts.models import MerchantProfile
+
+
+class Area(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Place(models.Model):
+    CATEGORY_CHOICES = [
+        ("PARK", "Park"),
+        ("MUSEUM", "Museum"),
+        ("RESTAURANT", "Restaurant"),
+        ("CAFE", "Cafe"),
+        ("STREET_FOOD", "Street Food"),
+        ("FAST_FOOD", "Fast Food"),
+        ("BAKERY", "Bakery"),
+        ("MALL", "Mall"),
+        ("SHOP", "Shop"),
+        ("LOCAL_MARKET", "Local Market"),
+        ("SUPERMARKET", "Supermarket"),
+        ("HISTORICAL_SITE", "Historical Site"),
+        ("LANDMARK", "Landmark"),
+        ("LAKE", "Lake"),
+        ("BEACH", "Beach"),
+        ("ZOO", "Zoo"),
+        ("CINEMA", "Cinema"),
+        ("AMUSEMENT_PARK", "Amusement Park"),
+        ("SPORTS_COMPLEX", "Sports Complex"),
+        ("HOTEL", "Hotel"),
+        ("GUEST_HOUSE", "Guest House"),
+        ("TRANSPORT", "Transport Hub"),
+        ("OTHER", "Other"),
+    ]
+
+    name = models.CharField(max_length=120)
+
+    area = models.ForeignKey(
+        Area,
+        on_delete=models.CASCADE,
+        related_name="places",
+        null=True,
+        blank=True,
+    )
+    address = models.CharField(max_length=255, blank=True, default="")
+
+    category = models.CharField(
+        max_length=30,
+        choices=CATEGORY_CHOICES,
+        default="OTHER",
+    )
+
+    is_popular = models.BooleanField(default=False)
+
+    opening_time = models.TimeField(null=True, blank=True)
+    closing_time = models.TimeField(null=True, blank=True)
+
+    # upload real image files to media/places/
+    image = models.ImageField(upload_to="places/", blank=True, null=True)
+
+    average_rating = models.FloatField(default=0.0)
+    review_count = models.PositiveIntegerField(default=0)
+
+    owner = models.ForeignKey(
+        MerchantProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="places",
+    )
+
+    def __str__(self):
+        area_name = self.area.name if self.area else "No area"
+        return f"{self.name} ({area_name})"
+
+    def recompute_rating(self):
+        agg = self.reviews.aggregate(
+            avg=models.Avg("rating"),
+            cnt=models.Count("id"),
+        )
+        self.average_rating = agg["avg"] or 0.0
+        self.review_count = agg["cnt"] or 0
+        self.save(update_fields=["average_rating", "review_count"])
+
+
+class SavedPlace(models.Model):
+    traveler = models.ForeignKey(
+        "accounts.UserAccount",
+        on_delete=models.CASCADE,
+        related_name="saved_places",
+        limit_choices_to={"role": "TRAVELER"},
+    )
+    place = models.ForeignKey(
+        Place,
+        on_delete=models.CASCADE,
+        related_name="saved_by",
+    )
+    saved_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("traveler", "place")
+
+    def __str__(self):
+        return f"{self.traveler.user.username} saved {self.place.name}"
+
+
+class Review(models.Model):
+    RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+    traveler = models.ForeignKey(
+        "accounts.UserAccount",
+        on_delete=models.CASCADE,
+        related_name="reviews",
+        limit_choices_to={"role": "TRAVELER"},
+    )
+    place = models.ForeignKey(
+        Place,
+        on_delete=models.CASCADE,
+        related_name="reviews",
+    )
+    rating = models.IntegerField(choices=RATING_CHOICES)
+    title = models.CharField(max_length=120, blank=True)
+    text = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.traveler.user.username} → {self.place.name} ({self.rating})"
+
+
+class Service(models.Model):
+    CATEGORY_CHOICES = [
+        ("HOSPITAL", "Hospital"),
+        ("POLICE", "Police station"),
+        ("ATM", "ATM"),
+        ("PHARMACY", "Pharmacy"),
+        ("TRANSPORT", "Transport hub"),
+    ]
+
+    name = models.CharField(max_length=200)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    area = models.ForeignKey(
+        Area,
+        on_delete=models.CASCADE,
+        related_name="services",
+    )
+    address = models.CharField(max_length=255, blank=True)
+    phone = models.CharField(max_length=50, blank=True)
+    open_hours = models.CharField(max_length=100, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["area__name", "category", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"

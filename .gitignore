@@ -1,0 +1,65 @@
+# ----------------------------------------
+# 🎯 TringTringGo Master .gitignore
+# Placed in the root directory: C:\Users\User\Tring-Tring-Go\
+# ----------------------------------------
+
+# --- Python Specific ---
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Database ---
+# Local SQLite database file for Django backend
+tringtringgo/db.sqlite3
+tringtringgo/db.sqlite3-journal
+
+# --- Virtual Environments ---
+venv/
+env/
+.venv/
+.mypy_cache/
+.pytest_cache/
+
+# --- Dependencies & Build Files ---
+# Node Modules for the Frontend project
+tringtringgo-frontend/node_modules
+tringtringgo-frontend/.pnp
+tringtringgo-frontend/.pnp.js
+tringtringgo-frontend/build/
+tringtringgo-frontend/coverage/
+
+# --- Environment Variables (Secrets) ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Common path for environment files in Django/React
+tringtringgo/.env
+tringtringgo-frontend/.env
+
+# --- Sensitive Credentials ---
+# Firebase service account key (backend)
+tringtringgo/firebase_key.json
+tringtringgo/firebase-debug.log
+
+# --- Media Files ---
+# Django's media storage root (User-uploaded files)
+media/
+tringtringgo/areas/download.jpeg # Explicitly ignoring the stray image file
+
+# --- Logs ---
+*.log
+
+# --- Editor / IDE Settings ---
+.vscode/
+.idea/
+
+# --- Operating System Files ---
+.DS_Store
+Thumbs.db
+
+# --- Custom/Temporary Files ---
+project-tree.txt
+serviceAccountKey.json
+
