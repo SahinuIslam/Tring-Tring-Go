@@ -1,5 +1,7 @@
 // src/pages/MerchantDashboard.jsx
 import React, { useEffect, useState } from "react";
+import PlaceImageUploader from "../components/PlaceImageUploader";
+
 
 /* ---------- helpers ---------- */
 
@@ -198,6 +200,8 @@ function MerchantDashboard() {
           description: body.description,
           is_verified: body.is_verified,
           status: body.status,
+          place_id: prev.profile.place_id ?? body.place_id,
+          place_image: prev.profile.place_image ?? body.place_image,
         },
       }));
       setMessage("Business profile updated successfully.");
@@ -519,7 +523,44 @@ function MerchantDashboard() {
                     >
                       Business overview
                     </h3>
-                    <dl className="row mb-0 small">
+
+                    {/* Place photo preview */}
+                    {profile.place_image && (
+                      <div className="mb-3">
+                        <img
+                          src={
+                            profile.place_image.startsWith("http")
+                              ? profile.place_image
+                              : `http://127.0.0.1:8000${profile.place_image}`
+                          }
+                          alt={profile.shop_name || "Place image"}
+                          style={{
+                            width: "100%",
+                            maxHeight: 180,
+                            objectFit: "cover",
+                            borderRadius: "0.5rem",
+                          }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Place image uploader */}
+                    {profile.place_id && (
+                      <PlaceImageUploader
+                        placeId={profile.place_id}
+                        onUploaded={(updatedPlace) => {
+                          setData((prev) => ({
+                            ...prev,
+                            profile: {
+                              ...prev.profile,
+                              place_image: updatedPlace.image,
+                            },
+                          }));
+                        }}
+                      />
+                    )}
+
+                    <dl className="row mb-0 small mt-3">
                       <dt
                         className={
                           "col-5 " +
@@ -689,12 +730,8 @@ function MerchantDashboard() {
                             <option value="BAKERY">Bakery</option>
                             <option value="MALL">Mall</option>
                             <option value="SHOP">Shop</option>
-                            <option value="LOCAL_MARKET">
-                              Local Market
-                            </option>
-                            <option value="SUPERMARKET">
-                              Supermarket
-                            </option>
+                            <option value="LOCAL_MARKET">Local Market</option>
+                            <option value="SUPERMARKET">Supermarket</option>
                             <option value="HISTORICAL_SITE">
                               Historical Site
                             </option>
@@ -710,12 +747,8 @@ function MerchantDashboard() {
                               Sports Complex
                             </option>
                             <option value="HOTEL">Hotel</option>
-                            <option value="GUEST_HOUSE">
-                              Guest House
-                            </option>
-                            <option value="TRANSPORT">
-                              Transport Hub
-                            </option>
+                            <option value="GUEST_HOUSE">Guest House</option>
+                            <option value="TRANSPORT">Transport Hub</option>
                             <option value="OTHER">Other</option>
                           </select>
                         </div>

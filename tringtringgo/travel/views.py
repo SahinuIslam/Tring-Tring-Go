@@ -3,23 +3,23 @@ from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    parser_classes,
+)
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
-
-# You can remove IsAdminUser if not used anywhere else
-from rest_framework.permissions import IsAdminUser
-from .models import Service
-from .serializers import ServiceSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from accounts.models import UserAccount, MerchantProfile
 from accounts.views import get_or_create_traveler_profile
-from .models import Place, SavedPlace, Review, Area
-from .serializers import (
+from travel.models import Place, SavedPlace, Review, Area, Service
+from travel.serializers import (
     SavedPlaceSerializer,
     PlaceSerializer,
     ReviewSerializer,
-    MerchantProfileSerializer,  # ensure this exists in travel/serializers.py
+    MerchantProfileSerializer,
     ServiceSerializer,
 )
 
@@ -45,7 +45,8 @@ def _get_traveler_from_token(request):
         defaults={"role": "TRAVELER"},
     )
 
-    traveler_profile = get_or_create_traveler_profile(account)
+    # ensure traveler profile exists (even if user is merchant/admin)
+    get_or_create_traveler_profile(account)
     return account, None
 
 
@@ -149,9 +150,9 @@ def place_reviews(request, pk):
     List all reviews for a given place (used by ExplorePage Reviews modal).
     Public read: no auth required.
     """
-    qs = Review.objects.filter(place_id=pk).select_related("traveler", "place").order_by(
-        "-created_at"
-    )
+    qs = Review.objects.filter(place_id=pk).select_related(
+        "traveler", "place"
+    ).order_by("-created_at")
     serializer = ReviewSerializer(qs, many=True)
     return Response(serializer.data)
 
@@ -288,6 +289,55 @@ def list_areas(request):
     return Response(data)
 
 
+@csrf_exempt
+@api_view(["PATCH"])
+@permission_classes([AllowAny])
+@parser_classes([MultiPartParser, FormParser])
+def upload_place_image(request, pk):
+    """
+    Merchant/Admin uploads or updates the image for a specific place.
+    Expects multipart/form-data with field 'image'.
+    """
+    account, error = _get_traveler_from_token(request)
+    if error:
+        return error
+
+    if account.role not in ["MERCHANT", "ADMIN"]:
+        return Response(
+            {"detail": "Only merchants or admins can update place images."},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        place = Place.objects.get(pk=pk)
+    except Place.DoesNotExist:
+        return Response(
+            {"detail": "Place not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    # If merchant, ensure they own this place
+    if account.role == "MERCHANT":
+        try:
+            merchant_profile = MerchantProfile.objects.get(user_account=account)
+        except MerchantProfile.DoesNotExist:
+            return Response(
+                {"detail": "Merchant profile not found."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if place.owner_id != merchant_profile.id:
+            return Response(
+                {"detail": "You do not own this place."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+    serializer = PlaceSerializer(place, data=request.data, partial=True)
+    if serializer.is_valid():
+        place = serializer.save()
+        return Response(PlaceSerializer(place).data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 #----------- Service by area --------------
 
 
@@ -297,7 +347,9 @@ def list_services(request):
     """
     Return services, optionally filtered by ?area_id=.
     """
-    qs = Service.objects.select_related("area").order_by("area__name", "category", "name")
+    qs = Service.objects.select_related("area").order_by(
+        "area__name", "category", "name"
+    )
 
     area_id = request.GET.get("area_id")
     if area_id:
@@ -380,7 +432,9 @@ def explore_merchants(request):
     Optional query param: ?area_id=ID to filter by Area.
     """
     area_id = request.GET.get("area_id")
-    qs = MerchantProfile.objects.select_related("business_area", "user_account__user")
+    qs = MerchantProfile.objects.select_related(
+        "business_area", "user_account__user"
+    )
 
     if area_id:
         qs = qs.filter(business_area_id=area_id)

@@ -18,7 +18,6 @@ from django.contrib.auth.models import User
 from .models import UserSettings   # make sure you added this model
 from .serializers import UserSettingsSerializer
 
-
 # Dashboard imports
 from .serializers import SignupSerializer, LoginSerializer
 from .models import UserAccount, TravelerProfile, LoginLog
@@ -82,7 +81,6 @@ class GoogleLoginAPIView(APIView):
                 {"detail": "Invalid token"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
 
         uid = decoded["uid"]
         email = decoded.get("email")
@@ -198,7 +196,7 @@ def traveler_dashboard(request):
     return Response(data)
 
 
-# Merchant dashboard view
+# Merchant dashboard view (UPDATED to include place_id & place_image)
 @csrf_exempt
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -247,6 +245,9 @@ def merchant_dashboard(request):
     else:
         display_status = "Not requested"
 
+    # Auto-created Place linked to this merchant (for image upload)
+    place = Place.objects.filter(owner=profile).first()
+
     stats = {
         "shop_name": profile.shop_name,
         "business_area": profile.business_area.name if profile.business_area else "Not set",
@@ -260,6 +261,9 @@ def merchant_dashboard(request):
         "description": profile.description,
         "is_verified": profile.is_verified,
         "status": display_status,
+        # NEW: used by MerchantDashboard.jsx
+        "place_id": place.id if place else None,
+        "place_image": place.image.url if place and place.image else None,
     }
 
     data = {
@@ -793,6 +797,7 @@ class UserSearchView(generics.ListAPIView):
             qs = qs.filter(username__icontains=q) | qs.filter(email__icontains=q)
         return qs[:20]
 
+
 # ----- helper: get account from token -----
 def _get_account_from_token(request):
     token = request.headers.get("X-User-Token")
@@ -833,6 +838,7 @@ def user_settings_view(request):
         return Response(ser.errors, status=status.HTTP_400_BAD_REQUEST)
     ser.save()
     return Response(ser.data, status=status.HTTP_200_OK)
+
 
 # ----- profile update: username / email / password -----
 @csrf_exempt
@@ -892,7 +898,6 @@ def update_profile_view(request):
         },
         status=status.HTTP_200_OK,
     )
-
 
 
 # ----- delete account: DELETE -----

@@ -18,7 +18,8 @@ class PlaceSerializer(serializers.ModelSerializer):
     area_name = serializers.CharField(source="area.name", read_only=True)
     review_count = serializers.IntegerField(read_only=True)
     latest_reviews = serializers.SerializerMethodField()
-    image = serializers.ImageField(read_only=True)
+    # make image writable so upload endpoint can save files
+    image = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Place

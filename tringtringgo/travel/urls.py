@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import (
+from travel.views import (
     list_places,
     list_saved_places,
     add_saved_place,
@@ -13,19 +13,25 @@ from .views import (
     list_services,
     create_service,
     modify_service,
-    place_reviews,  # used by ExplorePage Reviews button
+    place_reviews,       # used by ExplorePage Reviews button
+    upload_place_image,  # NEW: upload place image
 )
 
 urlpatterns = [
     # places
     path("places/", list_places, name="place-list"),
+    path(
+        "places/<int:pk>/upload-image/",
+        upload_place_image,
+        name="place-upload-image",
+    ),
 
     # services
     path("services/", list_services, name="service-list"),
     path("services/create/", create_service, name="service-create"),
     path("services/<int:pk>/", modify_service, name="service-modify"),
 
-    # NEW: reviews for a specific place (used by ExplorePage Reviews button)
+    # reviews for a specific place (used by ExplorePage Reviews button)
     path(
         "places/<int:pk>/reviews/",
         place_reviews,
