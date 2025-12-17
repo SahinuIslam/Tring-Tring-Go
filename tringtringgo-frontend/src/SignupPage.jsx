@@ -130,6 +130,7 @@ function SignupPage() {
     }
   }
 
+  // Google signup – same behavior as LoginPage Google
   async function handleGoogleSignup() {
     setLoading(true);
     setMessage("");
@@ -138,7 +139,6 @@ function SignupPage() {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
-
       const idToken = await user.getIdToken();
 
       const response = await fetch(
@@ -150,15 +150,32 @@ function SignupPage() {
         }
       );
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || "Google auth failed");
+        throw new Error(data.detail || "Google auth failed");
       }
 
-      const data = await response.json();
-      setMessage(data.message || "Google auth successful!");
+      // Mirror handleLoginSuccess from LoginPage
+      const ttgUser = {
+        username: data.username || data.email || user.displayName || "",
+        email: data.email || "",
+        role: data.role,
+        mode: data.role,
+        token: data.token || data.username || data.email || "",
+      };
 
-      navigate("/traveler");
+      localStorage.setItem("ttg_user", JSON.stringify(ttgUser));
+      if (ttgUser.username) {
+        localStorage.setItem("userToken", ttgUser.username);
+      }
+
+      setMessage(data.message || "Google signup successful!");
+
+      if (ttgUser.mode === "TRAVELER") navigate("/traveler");
+      else if (ttgUser.mode === "MERCHANT") navigate("/merchant");
+      else if (ttgUser.mode === "ADMIN") navigate("/admin");
+      else navigate("/traveler");
     } catch (err) {
       console.error("Google auth error:", err);
       setErrors({ detail: err.message || "Google auth failed." });
