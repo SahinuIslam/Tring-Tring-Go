@@ -1,6 +1,77 @@
+// src/pages/ServicesPage.jsx
 import React, { useEffect, useState } from "react";
 
-function Services() {
+function getAuthUser() {
+  const stored = localStorage.getItem("ttg_user");
+  const parsed = stored ? JSON.parse(stored) : null;
+  return parsed;
+}
+
+function getInitialTheme() {
+  const stored = localStorage.getItem("ttg_theme");
+  return stored === "dark" || stored === "light" ? stored : "light";
+}
+
+function ServicesPage() {
+  const [theme, setTheme] = useState(getInitialTheme);
+  const isDark = theme === "dark";
+
+  useEffect(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    if (stored === "dark" || stored === "light") {
+      setTheme(stored);
+    }
+  }, []);
+
+  const outerBgClass = isDark ? "bg-black bg-gradient" : "bg-body-tertiary";
+  const cardBgClass = isDark ? "bg-dark text-light" : "bg-white text-dark";
+
+  return (
+    <div className={outerBgClass + " min-vh-100 py-4"}>
+      <div className="container">
+        <div
+          className={
+            "card shadow-lg border-0 rounded-4 overflow-hidden " + cardBgClass
+          }
+        >
+          <div
+            className={
+              "px-4 pt-4 pb-3 bg-gradient " +
+              (isDark ? "bg-primary text-light" : "bg-primary text-white")
+            }
+          >
+            <div className="d-flex flex-wrap align-items-center justify-content-between">
+              <div className="mb-3 mb-lg-0">
+                <h1
+                  className={
+                    "h3 mb-1 " + (isDark ? "text-light" : "text-white")
+                  }
+                >
+                  Nearby Services
+                </h1>
+                <p
+                  className={
+                    "mb-1 small " +
+                    (isDark ? "text-light opacity-75" : "text-white-50")
+                  }
+                >
+                  Find hospitals, police stations, ATMs, pharmacies and transport
+                  hubs around your travel area.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-body p-4">
+            <ServicesCore />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ServicesCore() {
   const [services, setServices] = useState([]);
   const [areas, setAreas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -10,19 +81,16 @@ function Services() {
   const [selectedService, setSelectedService] = useState(null);
   const [selectedAreaId, setSelectedAreaId] = useState("ALL");
 
-  // Read current user info (including role/mode) from localStorage
   const storedUser = localStorage.getItem("ttg_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const userRole = parsedUser?.role || parsedUser?.mode || null;
 
   useEffect(() => {
-    // when user changes (traveler -> merchant), reset filters
     setSelectedAreaId("ALL");
     setSelectedCategory("ALL");
     setSelectedService(null);
   }, [userRole]);
 
-  // Basic categories you mentioned
   const categories = [
     { key: "ALL", label: "All" },
     { key: "HOSPITAL", label: "Hospitals" },
@@ -32,16 +100,13 @@ function Services() {
     { key: "TRANSPORT", label: "Transport hubs" },
   ];
 
-  // Load areas once
   useEffect(() => {
     async function loadAreas() {
       try {
-        const resp = await fetch(
-          "http://127.0.0.1:8000/api/travel/areas/"
-        );
+        const resp = await fetch("http://127.0.0.1:8000/api/travel/areas/");
         if (!resp.ok) return;
         const data = await resp.json();
-        setAreas(data); // each item: {id, name}
+        setAreas(data);
       } catch (e) {
         console.error("Areas load error:", e);
       }
@@ -49,7 +114,6 @@ function Services() {
     loadAreas();
   }, []);
 
-  // Load services whenever area filter changes
   useEffect(() => {
     async function loadServices() {
       try {
@@ -89,7 +153,6 @@ function Services() {
       }
     }
 
-    // Load for travelers and merchants; block only admins
     if (userRole === "ADMIN") {
       setLoading(false);
       return;
@@ -103,7 +166,6 @@ function Services() {
       ? services
       : services.filter((s) => s.category === selectedCategory);
 
-  // Build a Google Maps URL for the currently selected service
   const hasCoords =
     selectedService &&
     selectedService.latitude != null &&
@@ -119,9 +181,6 @@ function Services() {
         )}`
       : null);
 
-  // Role-based rendering
-
-  // Not logged in or no role
   if (!userRole) {
     return (
       <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
@@ -135,7 +194,6 @@ function Services() {
     );
   }
 
-  // Admin: tell them to use admin services page
   if (userRole === "ADMIN") {
     return (
       <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
@@ -149,29 +207,9 @@ function Services() {
     );
   }
 
-  // Traveler / Merchant view (full UI)
   return (
-    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
+    <>
       <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 1100px;
-          background: white;
-          padding: 2rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1),
-                      0 2px 4px -2px rgba(0,0,0,0.1);
-        }
-        .services-layout {
-          display: grid;
-          grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-          gap: 1.5rem;
-        }
-        @media (max-width: 900px) {
-          .services-layout {
-            grid-template-columns: minmax(0, 1fr);
-          }
-        }
         .services-category-chip {
           padding: 0.35rem 0.8rem;
           border-radius: 999px;
@@ -202,13 +240,7 @@ function Services() {
         }
       `}</style>
 
-      <div className="dashboard-card">
-        <h2 className="text-2xl font-bold text-gray-800">Nearby Services</h2>
-        <p className="text-sm text-gray-600 mb-3">
-          Find important services like hospitals, police stations, ATMs,
-          pharmacies and transport hubs around your travel area.
-        </p>
-
+      <div className="mb-3">
         {/* Area filter */}
         <div style={{ marginBottom: "0.75rem" }}>
           <label
@@ -245,14 +277,7 @@ function Services() {
         </div>
 
         {/* Category filters */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "0.5rem",
-            marginBottom: "1rem",
-          }}
-        >
+        <div className="d-flex flex-wrap gap-2 mb-2">
           {categories.map((c) => (
             <button
               key={c.key}
@@ -270,15 +295,17 @@ function Services() {
             </button>
           ))}
         </div>
+      </div>
 
-        {loading && <p>Loading services...</p>}
-        {error && (
-          <p style={{ color: "#b91c1c", fontWeight: 500 }}>Error: {error}</p>
-        )}
+      {loading && <p className="small text-muted mb-0">Loading services…</p>}
+      {error && (
+        <p className="text-danger fw-semibold small mb-0">Error: {error}</p>
+      )}
 
-        {!loading && !error && (
-          <div className="services-layout">
-            {/* Left: list */}
+      {!loading && !error && (
+        <div className="row g-3">
+          {/* Left: list */}
+          <div className="col-lg-5">
             <div
               style={{
                 display: "flex",
@@ -290,7 +317,7 @@ function Services() {
               }}
             >
               {filteredServices.length === 0 ? (
-                <p style={{ color: "#6b7280" }}>
+                <p className="small text-muted mb-0">
                   No services found for this selection.
                 </p>
               ) : (
@@ -305,13 +332,7 @@ function Services() {
                     }
                     onClick={() => setSelectedService(s)}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                      }}
-                    >
+                    <div className="d-flex justify-content-between align-items-center">
                       <div>
                         <h3
                           style={{
@@ -383,8 +404,10 @@ function Services() {
                 ))
               )}
             </div>
+          </div>
 
-            {/* Right: map / details */}
+          {/* Right: map / details */}
+          <div className="col-lg-7">
             <div
               style={{
                 borderRadius: "0.75rem",
@@ -409,9 +432,15 @@ function Services() {
               </h3>
 
               {!selectedService ? (
-                <p style={{ color: "#6b7280", fontSize: "0.9rem" }}>
-                  Select a service from the list to see its location and
-                  extra information.
+                <p
+                  style={{
+                    color: "#6b7280",
+                    fontSize: "0.9rem",
+                    marginBottom: 0,
+                  }}
+                >
+                  Select a service from the list to see its location and extra
+                  information.
                 </p>
               ) : (
                 <>
@@ -524,10 +553,10 @@ function Services() {
               )}
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </>
   );
 }
 
-export default Services;
+export default ServicesPage;

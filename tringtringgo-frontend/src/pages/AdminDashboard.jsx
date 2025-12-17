@@ -1,6 +1,5 @@
-// src/AdminDashboard.jsx
+// src/pages/AdminDashboard.jsx
 import React, { useEffect, useState } from "react";
-
 
 function AdminDashboard() {
   const [data, setData] = useState(null);
@@ -13,6 +12,20 @@ function AdminDashboard() {
   const [message, setMessage] = useState("");
   const [actingId, setActingId] = useState(null);
   const [communityError, setCommunityError] = useState("");
+
+  // global theme from Settings
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    return stored === "dark" || stored === "light" ? stored : "light";
+  });
+  const isDark = theme === "dark";
+
+  useEffect(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    if (stored === "dark" || stored === "light") {
+      setTheme(stored);
+    }
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -79,18 +92,24 @@ function AdminDashboard() {
             commBody.detail || "Failed to load community posts"
           );
         } else {
-          // commBody is list of posts without comments;
-          // we’ll fetch comments per post below (simple version)
+          // IMPORTANT FIX: include X-User-Token when loading each post detail
           const postsWithComments = await Promise.all(
             commBody.map(async (p) => {
               try {
                 const detailResp = await fetch(
-                  `http://127.0.0.1:8000/api/community/posts/${p.id}/`
+                  `http://127.0.0.1:8000/api/community/posts/${p.id}/`,
+                  {
+                    method: "GET",
+                    headers: {
+                      "X-User-Token": token,
+                    },
+                  }
                 );
                 const detailBody = await detailResp
                   .json()
                   .catch(() => ({ ...p, comments: [] }));
-                if (!detailResp.ok) return { ...p, comments: [] };
+                if (!detailResp.ok)
+                  return { ...p, comments: [] };
                 return { ...p, comments: detailBody.comments || [] };
               } catch {
                 return { ...p, comments: [] };
@@ -202,7 +221,6 @@ function AdminDashboard() {
         throw new Error(body.detail || "Failed to delete comment");
       }
 
-      // remove comment locally
       setCommunityPosts((prev) =>
         prev.map((p) =>
           p.id === postId
@@ -216,12 +234,29 @@ function AdminDashboard() {
     }
   }
 
+  const outerBgClass = isDark ? "bg-black bg-gradient" : "bg-body-tertiary";
+  const cardBgClass = isDark ? "bg-dark text-light" : "bg-white text-dark";
+
   if (loading) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <h2>Admin Dashboard</h2>
-          <p>Loading...</p>
+      <div className={outerBgClass + " min-vh-100 d-flex align-items-center"}>
+        <div className="container">
+          <div className={`card shadow-lg border-0 rounded-4 ${cardBgClass}`}>
+            <div className="card-body p-4">
+              <div className="text-center py-5">
+                <div className="spinner-border text-primary mb-3" />
+                <h2 className="h4 mb-1">Admin Dashboard</h2>
+                <p
+                  className={
+                    "mb-0 small " +
+                    (isDark ? "text-secondary" : "text-muted")
+                  }
+                >
+                  Loading your data…
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -229,10 +264,16 @@ function AdminDashboard() {
 
   if (error || !data) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <h2>Admin Dashboard</h2>
-          <p style={{ color: "#b91c1c" }}>{error || "No data"}</p>
+      <div className={outerBgClass + " min-vh-100 d-flex align-items-center"}>
+        <div className="container">
+          <div className={`card shadow-lg border-0 rounded-4 ${cardBgClass}`}>
+            <div className="card-body p-4">
+              <h2 className="h4 mb-3">Admin Dashboard</h2>
+              <div className="alert alert-danger mb-0" role="alert">
+                {error || "No data"}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -241,347 +282,380 @@ function AdminDashboard() {
   const { admin, stats } = data;
 
   return (
-    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
-      <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 980px;
-          background: white;
-          padding: 1.5rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
-        }
-        .stats-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        .stat-card {
-          padding: 0.75rem;
-          background-color: #f9fafb;
-          border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
-        }
-        .stat-card h3 {
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #6b7280;
-          margin-bottom: 0.15rem;
-        }
-        .stat-card p {
-          font-size: 1.2rem;
-          font-weight: 700;
-          color: #1f2937;
-        }
-        .primary-btn {
-          padding: 0.35rem 0.8rem;
-          border: none;
-          border-radius: 0.5rem;
-          background-color: #3b82f6;
-          color: white;
-          font-weight: 600;
-          cursor: pointer;
-          font-size: 0.8rem;
-        }
-        .primary-btn:disabled {
-          background-color: #93c5fd;
-          cursor: not-allowed;
-        }
-        .table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 0.85rem;
-        }
-        .table th, .table td {
-          border: 1px solid #e5e7eb;
-          padding: 0.4rem 0.5rem;
-          text-align: left;
-        }
-        .table th {
-          background: #f3f4f6;
-          font-weight: 600;
-        }
-        .badge {
-          display: inline-block;
-          padding: 0.1rem 0.4rem;
-          border-radius: 999px;
-          font-size: 0.7rem;
-          font-weight: 600;
-        }
-        .badge-pending { background: #fef3c7; color: #92400e; }
-        .badge-approved { background: #d1fae5; color: #065f46; }
-        .badge-rejected { background: #fee2e2; color: #b91c1c; }
-      `}</style>
-
-      <div className="dashboard-card">
-
-        <h2 className="text-2xl font-bold text-gray-800">Admin Dashboard</h2>
-        <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>
-          {message}
-        </p>
-
-        {error && (
-          <div
-            style={{
-              padding: "0.5rem 0.75rem",
-              marginBottom: "0.75rem",
-              background: "#fee2e2",
-              color: "#b91c1c",
-              borderRadius: "0.375rem",
-              fontSize: "0.85rem",
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        {/* Admin info */}
-        <section style={{ marginBottom: "1rem" }}>
-          <p>
-            <strong>Admin:</strong> {admin.username}
-          </p>
-          <p>
-            <strong>Area:</strong> {admin.area}
-          </p>
-        </section>
-
-        {/* Stats */}
-        <div className="stats-row">
-          <div className="stat-card">
-            <h3>Merchants in area</h3>
-            <p>{stats.total_merchants_in_area}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Verified merchants</h3>
-            <p>{stats.verified_merchants_in_area}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Unverified merchants</h3>
-            <p>{stats.unverified_merchants_in_area}</p>
-          </div>
-        </div>
-
-        {/* Verification requests */}
-        <section style={{ marginBottom: "2rem" }}>
-          <h3 className="text-xl font-semibold mb-2">
-            Merchant verification requests
-          </h3>
-          {reqLoading ? (
-            <p>Loading requests...</p>
-          ) : requests.length === 0 ? (
-            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-              No verification requests for your area yet.
-            </p>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Shop name</th>
-                    <th>Type</th>
-                    <th>Address</th>
-                    <th>Phone</th>
-                    <th>Status</th>
-                    <th>Created at</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {requests.map((r) => (
-                    <tr key={r.id}>
-                      <td>{r.shop_name}</td>
-                      <td>{r.business_type || "-"}</td>
-                      <td>{r.address || "-"}</td>
-                      <td>{r.phone || "-"}</td>
-                      <td>
-                        <span
-                          className={
-                            "badge " +
-                            (r.status === "PENDING"
-                              ? "badge-pending"
-                              : r.status === "APPROVED"
-                              ? "badge-approved"
-                              : "badge-rejected")
-                          }
-                        >
-                          {r.status}
-                        </span>
-                      </td>
-                      <td>{new Date(r.created_at).toLocaleString()}</td>
-                      <td>
-                        {r.status === "PENDING" ? (
-                          <div style={{ display: "flex", gap: "0.25rem" }}>
-                            <button
-                              type="button"
-                              className="primary-btn"
-                              disabled={actingId === r.id}
-                              onClick={() => handleAction(r.id, "APPROVE")}
-                            >
-                              {actingId === r.id ? "Working..." : "Approve"}
-                            </button>
-                            <button
-                              type="button"
-                              className="primary-btn"
-                              style={{ backgroundColor: "#ef4444" }}
-                              disabled={actingId === r.id}
-                              onClick={() => handleAction(r.id, "REJECT")}
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "#6b7280",
-                            }}
-                          >
-                            No actions
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+    <div className={outerBgClass + " min-vh-100 py-4"}>
+      <div className="container">
+        <div
+          className={
+            "card shadow-lg border-0 rounded-4 overflow-hidden " + cardBgClass
+          }
+        >
+          {/* Hero header */}
+          <div className={"px-4 pt-4 pb-3 bg-gradient bg-danger text-white"}>
+            <div className="d-flex flex-wrap align-items-center justify-content-between">
+              <div className="mb-3 mb-lg-0">
+                <h1 className="h3 mb-1 text-white">Admin Dashboard</h1>
+                <p className="mb-1 small text-white-50">
+                  Manage verification requests and community content for your
+                  area
+                </p>
+                <div className="d-flex align-items-center gap-2 mt-1">
+                  <span className="badge rounded-pill bg-light text-dark">
+                    {admin.username}
+                  </span>
+                  <span className="badge rounded-pill bg-light text-dark">
+                    {admin.area}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
-        </section>
+          </div>
 
-        {/* Community posts in admin area with comments */}
-        <section>
-          <h3 className="text-xl font-semibold mb-2">
-            Community posts in your area
-          </h3>
-          {communityError && (
-            <p style={{ color: "#b91c1c", fontSize: "0.85rem" }}>
-              {communityError}
-            </p>
-          )}
-          {communityLoading ? (
-            <p>Loading community posts...</p>
-          ) : communityPosts.length === 0 ? (
-            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-              No community posts for your area yet.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-              {communityPosts.map((p) => (
-                <div
-                  key={p.id}
-                  style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "0.5rem",
-                    padding: "0.75rem",
-                    backgroundColor: "#f9fafb",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "0.5rem",
-                    }}
-                  >
+          {/* Body */}
+          <div className="card-body p-4">
+            {message && (
+              <div
+                className="alert alert-success py-2 small mb-3"
+                role="alert"
+              >
+                {message}
+              </div>
+            )}
+            {error && (
+              <div className="alert alert-danger py-2 small mb-3" role="alert">
+                {error}
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div className="row g-3 mb-4">
+              <div className="col-md-4">
+                <div className="card border-0 bg-primary-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-primary text-white rounded-circle p-3">
+                        <i className="bi bi-shop" />
+                      </span>
+                    </div>
                     <div>
-                      <div style={{ fontWeight: 600 }}>{p.title}</div>
                       <div
-                        style={{
-                          fontSize: "0.8rem",
-                          color: "#6b7280",
-                        }}
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
                       >
-                        {p.category_label} · by {p.author} ·{" "}
-                        {new Date(p.created_at).toLocaleString()}
+                        Merchants in area
+                      </div>
+                      <div className="fw-bold text-dark">
+                        {stats.total_merchants_in_area}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="primary-btn"
-                      style={{ backgroundColor: "#ef4444" }}
-                      onClick={() => handleDeletePost(p.id)}
-                    >
-                      Delete post
-                    </button>
                   </div>
-
-                  <div style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>
-                    {p.description}
-                  </div>
-
-                  <div style={{ fontSize: "0.8rem", color: "#4b5563" }}>
-                    {p.comments?.length || 0} comments · {p.likes_count} likes ·{" "}
-                    {p.dislikes_count} dislikes
-                  </div>
-
-                  {p.comments && p.comments.length > 0 && (
-                    <div
-                      style={{
-                        marginTop: "0.5rem",
-                        borderTop: "1px solid #e5e7eb",
-                        paddingTop: "0.5rem",
-                      }}
-                    >
+                </div>
+              </div>
+              <div className="col-md-4">
+                <div className="card border-0 bg-success-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-success text-white rounded-circle p-3">
+                        <i className="bi bi-check-circle-fill" />
+                      </span>
+                    </div>
+                    <div>
                       <div
-                        style={{
-                          fontSize: "0.8rem",
-                          fontWeight: 600,
-                          marginBottom: "0.25rem",
-                        }}
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
                       >
-                        Comments
+                        Verified merchants
                       </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                        {p.comments.map((c) => (
-                          <div
-                            key={c.id}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              fontSize: "0.8rem",
-                              backgroundColor: "#ffffff",
-                              borderRadius: "0.25rem",
-                              padding: "0.25rem 0.5rem",
-                              border: "1px solid #e5e7eb",
-                            }}
-                          >
-                            <div>
-                              <span style={{ fontWeight: 600 }}>{c.author}</span>
-                              {": "}
-                              <span>{c.text}</span>
+                      <div className="fw-bold text-dark">
+                        {stats.verified_merchants_in_area}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="col-md-4">
+                <div className="card border-0 bg-warning-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-warning text-dark rounded-circle p-3">
+                        <i className="bi bi-x-circle-fill" />
+                      </span>
+                    </div>
+                    <div>
+                      <div
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
+                      >
+                        Unverified merchants
+                      </div>
+                      <div className="fw-bold text-dark">
+                        {stats.unverified_merchants_in_area}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Verification requests table */}
+            <div className="mb-5">
+              <h3
+                className={
+                  "h6 text-uppercase mb-3 " +
+                  (isDark ? "text-light" : "text-muted")
+                }
+              >
+                Merchant verification requests
+              </h3>
+              {reqLoading ? (
+                <div className="text-center py-4">
+                  <div className="spinner-border text-primary mb-2" />
+                  <p className="small mb-0 text-muted">Loading requests...</p>
+                </div>
+              ) : requests.length === 0 ? (
+                <p
+                  className={
+                    "small mb-0 " +
+                    (isDark ? "text-secondary" : "text-muted")
+                  }
+                >
+                  No verification requests for your area yet.
+                </p>
+              ) : (
+                <div className="table-responsive">
+                  <table className="table table-hover">
+                    <thead>
+                      <tr>
+                        <th>Shop name</th>
+                        <th>Type</th>
+                        <th>Address</th>
+                        <th>Phone</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {requests.map((r) => (
+                        <tr key={r.id}>
+                          <td className="fw-semibold">{r.shop_name}</td>
+                          <td>{r.business_type || "-"}</td>
+                          <td className="small">{r.address || "-"}</td>
+                          <td className="small">{r.phone || "-"}</td>
+                          <td>
+                            <span
+                              className={
+                                "badge " +
+                                (r.status === "PENDING"
+                                  ? "bg-warning text-dark"
+                                  : r.status === "APPROVED"
+                                  ? "bg-success"
+                                  : "bg-danger")
+                              }
+                            >
+                              {r.status}
+                            </span>
+                          </td>
+                          <td className="small">
+                            {new Date(r.created_at).toLocaleDateString()}
+                          </td>
+                          <td>
+                            {r.status === "PENDING" ? (
                               <div
-                                style={{
-                                  fontSize: "0.7rem",
-                                  color: "#9ca3af",
-                                }}
+                                className="btn-group btn-group-sm"
+                                role="group"
                               >
-                                {new Date(c.created_at).toLocaleString()}
+                                <button
+                                  type="button"
+                                  className="btn btn-success"
+                                  disabled={actingId === r.id}
+                                  onClick={() =>
+                                    handleAction(r.id, "APPROVE")
+                                  }
+                                >
+                                  {actingId === r.id ? (
+                                    <>
+                                      <span className="spinner-border spinner-border-sm me-1" />
+                                      Approve
+                                    </>
+                                  ) : (
+                                    "Approve"
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-danger"
+                                  disabled={actingId === r.id}
+                                  onClick={() =>
+                                    handleAction(r.id, "REJECT")
+                                  }
+                                >
+                                  Reject
+                                </button>
                               </div>
+                            ) : (
+                              <span
+                                className={
+                                  "small " +
+                                  (isDark ? "text-secondary" : "text-muted")
+                                }
+                              >
+                                No actions
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Community posts */}
+            <div>
+              <h3
+                className={
+                  "h6 text-uppercase mb-3 " +
+                  (isDark ? "text-light" : "text-muted")
+                }
+              >
+                Community posts in your area
+              </h3>
+              {communityError && (
+                <div
+                  className="alert alert-danger py-2 small mb-3"
+                  role="alert"
+                >
+                  {communityError}
+                </div>
+              )}
+              {communityLoading ? (
+                <div className="text-center py-4">
+                  <div className="spinner-border text-primary mb-2" />
+                  <p className="small mb-0 text-muted">
+                    Loading community posts...
+                  </p>
+                </div>
+              ) : communityPosts.length === 0 ? (
+                <p
+                  className={
+                    "small mb-0 " +
+                    (isDark ? "text-secondary" : "text-muted")
+                  }
+                >
+                  No community posts for your area yet.
+                </p>
+              ) : (
+                <div className="row g-3">
+                  {communityPosts.map((p) => (
+                    <div className="col-lg-6" key={p.id}>
+                      <div
+                        className={
+                          "card h-100 border-0 " +
+                          (isDark ? "bg-secondary" : "bg-light")
+                        }
+                      >
+                        <div className="card-body">
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <h6 className="card-title mb-1 fw-semibold">
+                                {p.title}
+                              </h6>
+                              <p
+                                className={
+                                  "small mb-1 " +
+                                  (isDark
+                                    ? "text-light opacity-75"
+                                    : "text-muted")
+                                }
+                              >
+                                {p.category_label} · by {p.author} ·{" "}
+                                {new Date(
+                                  p.created_at
+                                ).toLocaleString()}
+                              </p>
                             </div>
                             <button
                               type="button"
-                              className="primary-btn"
-                              style={{
-                                backgroundColor: "#ef4444",
-                                padding: "0.2rem 0.5rem",
-                              }}
-                              onClick={() => handleDeleteComment(c.id, p.id)}
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleDeletePost(p.id)}
                             >
-                              Delete
+                              Delete post
                             </button>
                           </div>
-                        ))}
+                          <p className="small mb-2">{p.description}</p>
+                          <p
+                            className={
+                              "small mb-0 " +
+                              (isDark
+                                ? "text-light opacity-75"
+                                : "text-muted")
+                            }
+                          >
+                            {p.comments?.length || 0} comments ·{" "}
+                            {p.likes_count} likes · {p.dislikes_count} dislikes
+                          </p>
+                          {p.comments && p.comments.length > 0 && (
+                            <div className="mt-2 pt-2 border-top">
+                              <small className="fw-semibold d-block mb-1">
+                                Comments:
+                              </small>
+                              {p.comments.slice(0, 3).map((c) => (
+                                <div
+                                  key={c.id}
+                                  className="d-flex justify-content-between align-items-start py-1"
+                                >
+                                  <div className="flex-grow-1">
+                                    <small className="fw-semibold">
+                                      {c.author}:
+                                    </small>
+                                    <span className="ms-1">{c.text}</span>
+                                    <div
+                                      className={
+                                        "small " +
+                                        (isDark
+                                          ? "text-light opacity-50"
+                                          : "text-muted")
+                                      }
+                                    >
+                                      {new Date(
+                                        c.created_at
+                                      ).toLocaleString()}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger py-0 px-1"
+                                    onClick={() =>
+                                      handleDeleteComment(c.id, p.id)
+                                    }
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ))}
+                              {p.comments.length > 3 && (
+                                <small className="text-muted">
+                                  ... and {p.comments.length - 3} more
+                                </small>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </section>
+          </div>
+        </div>
       </div>
     </div>
   );

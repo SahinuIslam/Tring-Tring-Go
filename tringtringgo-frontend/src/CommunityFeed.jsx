@@ -1,6 +1,7 @@
+// src/pages/CommunityPage.jsx
 import React, { useEffect, useState } from "react";
 
-/* ---------- helpers ---------- */
+/* ---------- shared auth helper ---------- */
 
 function getAuthMode() {
   const stored = localStorage.getItem("ttg_user");
@@ -10,7 +11,14 @@ function getAuthMode() {
   return { parsed, role, mode };
 }
 
-/* ---------- Community feed ---------- */
+/* ---------- global theme helper ---------- */
+
+function getInitialTheme() {
+  const stored = localStorage.getItem("ttg_theme");
+  return stored === "dark" || stored === "light" ? stored : "light";
+}
+
+/* ---------- constants ---------- */
 
 const CATEGORY_OPTIONS = [
   { value: "ALL", label: "All Posts" },
@@ -20,7 +28,67 @@ const CATEGORY_OPTIONS = [
   { value: "LOST_FOUND", label: "Lost & Found" },
 ];
 
-function CommunityFeed() {
+/* ---------- main page wrapper with global theme ---------- */
+
+function CommunityPage() {
+  const [theme, setTheme] = useState(getInitialTheme());
+  const isDark = theme === "dark";
+
+  useEffect(() => {
+    localStorage.setItem("ttg_theme", theme);
+  }, [theme]);
+
+  const outerBgClass = isDark ? "bg-black bg-gradient" : "bg-body-tertiary";
+  const cardBgClass = isDark ? "bg-dark text-light" : "bg-white text-dark";
+
+  return (
+    <div className={outerBgClass + " min-vh-100 py-4"}>
+      <div className="container">
+        <div
+          className={
+            "card shadow-lg border-0 rounded-4 overflow-hidden " + cardBgClass
+          }
+        >
+          <div
+            className={
+              "px-4 pt-4 pb-3 bg-gradient " +
+              (isDark ? "bg-primary text-light" : "bg-primary text-white")
+            }
+          >
+            <div className="d-flex flex-wrap align-items-center justify-content-between">
+              <div className="mb-3 mb-lg-0">
+                <h1
+                  className={
+                    "h3 mb-1 " + (isDark ? "text-light" : "text-white")
+                  }
+                >
+                  Community Feed
+                </h1>
+                <p
+                  className={
+                    "mb-1 small " +
+                    (isDark ? "text-light opacity-75" : "text-white-50")
+                  }
+                >
+                  See real-time tips, alerts, and updates from travelers in your
+                  city.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card-body p-4">
+            <CommunityFeed isDark={isDark} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- CommunityFeed ---------- */
+
+function CommunityFeed({ isDark }) {
   const { parsed: parsedUser, role: userRole, mode: userMode } = getAuthMode();
   const isLoggedIn = !!parsedUser;
   const isTravelerMode = isLoggedIn && userMode === "TRAVELER";
@@ -79,8 +147,11 @@ function CommunityFeed() {
 
   // Like / dislike
   const handleReact = async (postId, reaction) => {
-    if ((userRole === 'MERCHANT' || userRole === 'ADMIN') && userMode !== 'TRAVELER') {
-      if (userRole === 'ADMIN') {
+    if (
+      (userRole === "MERCHANT" || userRole === "ADMIN") &&
+      userMode !== "TRAVELER"
+    ) {
+      if (userRole === "ADMIN") {
         alert("Admins cannot react to posts. Only travelers can react.");
       } else {
         alert("Switch to traveler mode from your merchant dashboard to react");
@@ -166,43 +237,12 @@ function CommunityFeed() {
     }
   };
 
+  const mutedTextClass = isDark ? "text-secondary" : "text-muted";
+
   return (
-    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
+    <>
       <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 900px;
-          background: white;
-          padding: 2rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1),
-                      0 2px 4px -2px rgba(0,0,0,0.1);
-        }
-        .community-container {
-          margin-top: 0.5rem;
-        }
-        .feed-header {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          margin-bottom: 0.75rem;
-        }
-        .feed-header h2 {
-          font-size: 1.4rem;
-          font-weight: 700;
-          color: #111827;
-        }
-        .feed-header p {
-          font-size: 0.9rem;
-          color: #6b7280;
-        }
-        .filter-bar {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.5rem;
-          margin-bottom: 0.75rem;
-        }
-        .filter-chip {
+        .ttg-filter-chip {
           padding: 0.3rem 0.75rem;
           border-radius: 999px;
           border: 1px solid #d1d5db;
@@ -211,47 +251,34 @@ function CommunityFeed() {
           background: #fff;
           color: #4b5563;
         }
-        .filter-chip.active {
+        .ttg-filter-chip.active {
           background: #111827;
           color: white;
           border-color: #111827;
         }
-        .area-select {
-          margin-left: auto;
-          min-width: 140px;
-        }
-        .area-select select {
-          width: 100%;
-          font-size: 0.8rem;
-          padding: 0.25rem 0.4rem;
-          border-radius: 999px;
-          border: 1px solid #d1d5db;
-          color: #374151;
-          background: #fff;
-        }
-        .post-card {
+        .ttg-post-card {
           border-bottom: 1px solid #e5e7eb;
           padding: 0.75rem 0;
         }
-        .post-card:hover {
+        .ttg-post-card:hover {
           background: #f9fafb;
         }
-        .post-title {
+        .ttg-post-title {
           font-weight: 600;
           font-size: 0.95rem;
           color: #111827;
           cursor: pointer;
         }
-        .post-meta {
+        .ttg-post-meta {
           font-size: 0.75rem;
           color: #6b7280;
           margin: 0.15rem 0;
         }
-        .post-desc {
+        .ttg-post-desc {
           font-size: 0.85rem;
           color: #4b5563;
         }
-        .post-footer {
+        .ttg-post-footer {
           display: flex;
           flex-wrap: wrap;
           gap: 0.75rem;
@@ -260,7 +287,7 @@ function CommunityFeed() {
           color: #6b7280;
           align-items: center;
         }
-        .reaction-btn {
+        .ttg-reaction-btn {
           border: none;
           background: none;
           padding: 0;
@@ -268,10 +295,10 @@ function CommunityFeed() {
           color: #2563eb;
           cursor: pointer;
         }
-        .reaction-btn:hover {
+        .ttg-reaction-btn:hover {
           text-decoration: underline;
         }
-        .primary-btn {
+        .ttg-primary-pill {
           padding: 0.35rem 0.75rem;
           border: none;
           border-radius: 999px;
@@ -281,7 +308,7 @@ function CommunityFeed() {
           font-weight: 600;
           cursor: pointer;
         }
-        .primary-btn-outline {
+        .ttg-primary-pill-outline {
           padding: 0.3rem 0.7rem;
           border-radius: 999px;
           border: 1px solid #111827;
@@ -291,151 +318,103 @@ function CommunityFeed() {
           font-weight: 600;
           cursor: pointer;
         }
-        .new-post-form {
-          margin-top: 0.75rem;
-          padding: 0.75rem;
-          border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
-          background: #f9fafb;
-        }
-        .new-post-form label {
-          display: block;
-          font-size: 0.8rem;
-          margin-bottom: 0.15rem;
-          color: #4b5563;
-        }
-        .new-post-form input,
-        .new-post-form select,
-        .new-post-form textarea {
-          width: 100%;
-          font-size: 0.8rem;
-          padding: 0.3rem 0.4rem;
-          border-radius: 0.375rem;
-          border: 1px solid #d1d5db;
-          margin-bottom: 0.5rem;
-        }
       `}</style>
 
-      <div className="dashboard-card">
-        <div className="community-container">
-          <div className="feed-header">
-            <h2>Community Feed</h2>
-            {(userRole === 'MERCHANT' || userRole === 'ADMIN') && userMode !== 'TRAVELER' && (
-  <p style={{ fontSize: "0.85rem", color: "#6b7280", marginBottom: "1rem" }}>
-    {userRole === 'ADMIN' ? "Admins cannot post/react" : "Switch to traveler mode to post/react"}
-  </p>
-)}
-
-            <p>Stay updated with the latest from Dhaka&apos;s community</p>
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              flexWrap: "wrap",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <FilterBar category={category} onChange={setCategory} />
-            <div className="area-select">
-              <select
-                value={areaId}
-                onChange={(e) => setAreaId(e.target.value)}
-              >
-                <option value="">All Areas</option>
-                {areas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: "0.75rem" }}>
-            <button
-              type="button"
-              className={showNewPost ? "primary-btn-outline" : "primary-btn"}
-              onClick={() => {
-                if (!isLoggedIn) {
-                  alert("You must log in to create posts.");
-                  return;
-                }
-                if ((userRole === 'MERCHANT' || userRole === 'ADMIN') && userMode !== 'TRAVELER') {
-                  alert(userRole === 'ADMIN' ? "Admins cannot create posts. Only travelers can post." : "Switch to traveler mode from your merchant dashboard to create posts.");
-                  return;
-                }
-                setShowNewPost((p) => !p);
-              }}
+      <div className="mb-3">
+        <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+          <FilterBar category={category} onChange={setCategory} />
+          <div className="ms-auto" style={{ minWidth: 160 }}>
+            <select
+              className="form-select form-select-sm"
+              value={areaId}
+              onChange={(e) => setAreaId(e.target.value)}
             >
-              {showNewPost ? "Cancel" : "Create a post"}
-            </button>
+              <option value="">All areas</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
           </div>
-
-          {showNewPost && (
-            <NewPostForm
-              token={token}
-              mode={userMode}
-              isLoggedIn={isLoggedIn}
-              isTravelerMode={isTravelerMode}
-              areas={areas}
-              onCreated={handlePostCreated}
-            />
-          )}
-
-          {error && (
-            <p style={{ color: "#b91c1c", fontSize: "0.85rem" }}>{error}</p>
-          )}
-          {loading ? (
-            <p style={{ fontSize: "0.85rem" }}>Loading posts...</p>
-          ) : posts.length === 0 ? (
-            <p style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-              No posts yet for this filter.
-            </p>
-          ) : (
-            posts.map((p) => (
-              <PostCard
-                key={p.id}
-                post={p}
-                onOpen={() => openPostDetail(p.id)}
-                onReact={handleReact}
-                />
-            ))
-          )}
-
-          {selectedPost && (
-            <PostDetailModal
-              post={selectedPost}
-              token={token}
-              mode={userMode}
-              isLoggedIn={isLoggedIn}
-              isTravelerMode={isTravelerMode}
-              onClose={() => setSelectedPost(null)}
-              onReact={handleReact}
-              onUpdate={setSelectedPost}
-            />
-          )}
         </div>
+
+        <button
+          type="button"
+          className={showNewPost ? "ttg-primary-pill-outline" : "ttg-primary-pill"}
+          onClick={() => {
+            if (!isLoggedIn) {
+              alert("You must log in to create posts.");
+              return;
+            }
+            if (!isTravelerMode) {
+              alert("Switch to traveler mode to create posts.");
+              return;
+            }
+            setShowNewPost((p) => !p);
+          }}
+        >
+          {showNewPost ? "Cancel" : "Create a post"}
+        </button>
       </div>
-    </div>
+
+      {showNewPost && (
+        <NewPostForm
+          token={token}
+          mode={userMode}
+          isLoggedIn={isLoggedIn}
+          isTravelerMode={isTravelerMode}
+          areas={areas}
+          onCreated={handlePostCreated}
+        />
+      )}
+
+      {error && <p className={"small mb-2 text-danger"}>{error}</p>}
+
+      {loading ? (
+        <p className={"small mb-0 " + mutedTextClass}>Loading posts…</p>
+      ) : posts.length === 0 ? (
+        <p className={"small mb-0 " + mutedTextClass}>
+          No posts yet for this filter.
+        </p>
+      ) : (
+        posts.map((p) => (
+          <PostCard
+            key={p.id}
+            post={p}
+            onOpen={() => openPostDetail(p.id)}
+            onReact={handleReact}
+          />
+        ))
+      )}
+
+      {selectedPost && (
+        <PostDetailModal
+          post={selectedPost}
+          token={token}
+          mode={userMode}
+          isLoggedIn={isLoggedIn}
+          isTravelerMode={isTravelerMode}
+          onClose={() => setSelectedPost(null)}
+          onReact={handleReact}
+          onUpdate={setSelectedPost}
+        />
+      )}
+    </>
   );
-
 }
-
 
 /* ---------- components ---------- */
 
 function FilterBar({ category, onChange }) {
   return (
-    <div className="filter-bar">
+    <div className="d-flex flex-wrap gap-2">
       {CATEGORY_OPTIONS.map((opt) => (
         <button
           key={opt.value}
           type="button"
           className={
-            "filter-chip" + (category === opt.value ? " active" : "")
+            "ttg-filter-chip" + (category === opt.value ? " active" : "")
           }
           onClick={() => onChange(opt.value)}
         >
@@ -455,20 +434,20 @@ function PostCard({ post, onOpen, onReact }) {
   const dislikesCount = post.dislikes_count ?? 0;
 
   return (
-    <div className="post-card">
-      <div className="post-title" onClick={onOpen}>
+    <div className="ttg-post-card">
+      <div className="ttg-post-title" onClick={onOpen}>
         {renderCategoryIcon(post.category)} {post.title}
       </div>
-      <div className="post-meta">
+      <div className="ttg-post-meta">
         {post.author} • {createdAt} {post.area ? `• ${post.area}` : ""}
       </div>
-      <div className="post-desc">
+      <div className="ttg-post-desc">
         {post.description && post.description.length > 140
           ? post.description.slice(0, 140) + "…"
           : post.description}
       </div>
-      <div className="post-footer">
-        <button type="button" className="reaction-btn" onClick={onOpen}>
+      <div className="ttg-post-footer">
+        <button type="button" className="ttg-reaction-btn" onClick={onOpen}>
           💬 {commentsCount} comments
         </button>
         <span>
@@ -476,14 +455,14 @@ function PostCard({ post, onOpen, onReact }) {
         </span>
         <button
           type="button"
-          className="reaction-btn"
+          className="ttg-reaction-btn"
           onClick={() => onReact(post.id, "LIKE")}
         >
           Like
         </button>
         <button
           type="button"
-          className="reaction-btn"
+          className="ttg-reaction-btn"
           onClick={() => onReact(post.id, "DISLIKE")}
         >
           Dislike
@@ -514,10 +493,13 @@ function NewPostForm({
       setError("You must log in to create posts.");
       return;
     }
-    // Check if user is a merchant/admin and NOT in traveler mode
     const { role } = getAuthMode();
-    if ((role === 'MERCHANT' || role === 'ADMIN') && mode !== 'TRAVELER') {
-      setError(role === 'ADMIN' ? "Admins cannot create posts. Only travelers can post." : "Switch to traveler mode to create posts.");
+    if ((role === "MERCHANT" || role === "ADMIN") && mode !== "TRAVELER") {
+      setError(
+        role === "ADMIN"
+          ? "Admins cannot create posts. Only travelers can post."
+          : "Switch to traveler mode to create posts."
+      );
       return;
     }
     if (!areaId) {
@@ -557,64 +539,67 @@ function NewPostForm({
   };
 
   return (
-    <form className="new-post-form" onSubmit={handleSubmit}>
-      <h4
-        style={{
-          fontSize: "0.9rem",
-          fontWeight: 600,
-          marginBottom: "0.35rem",
-        }}
+    <form
+      className="border rounded-3 p-3 mb-3 bg-body-secondary"
+      onSubmit={handleSubmit}
+    >
+      <h4 className="h6 mb-2">Create a community post</h4>
+      {error && <p className="text-danger small mb-2">{error}</p>}
+      <div className="mb-2">
+        <label className="form-label small">Title</label>
+        <input
+          className="form-control form-control-sm"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. 🚨 Price Alert: Nanna Biryani now ৳180"
+        />
+      </div>
+      <div className="row g-2">
+        <div className="col-md-4">
+          <label className="form-label small">Category</label>
+          <select
+            className="form-select form-select-sm"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            {CATEGORY_OPTIONS.filter((c) => c.value !== "ALL").map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-md-8">
+          <label className="form-label small">Area</label>
+          <select
+            className="form-select form-select-sm"
+            value={areaId}
+            onChange={(e) => setAreaId(e.target.value)}
+          >
+            <option value="">Select area…</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="mt-2 mb-2">
+        <label className="form-label small">Description</label>
+        <textarea
+          className="form-control form-control-sm"
+          rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Describe what happened, price, location details, etc."
+        />
+      </div>
+      <button
+        type="submit"
+        className="btn btn-primary btn-sm rounded-pill"
+        disabled={saving}
       >
-        Create a community post
-      </h4>
-      {error && (
-        <p
-          style={{
-            color: "#b91c1c",
-            fontSize: "0.8rem",
-            marginBottom: "0.4rem",
-          }}
-        >
-          {error}
-        </p>
-      )}
-      <label>Title</label>
-      <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="e.g. 🚨 Price Alert: Nanna Biryani now ৳180"
-      />
-      <label>Category</label>
-      <select
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-      >
-        {CATEGORY_OPTIONS.filter((c) => c.value !== "ALL").map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <label>Area</label>
-      <select
-        value={areaId}
-        onChange={(e) => setAreaId(e.target.value)}
-      >
-        <option value="">Select area…</option>
-        {areas.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.name}
-          </option>
-        ))}
-      </select>
-      <label>Description</label>
-      <textarea
-        rows={3}
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Describe what happened, price, location details, etc."
-      />
-      <button type="submit" className="primary-btn" disabled={saving}>
         {saving ? "Posting..." : "Post"}
       </button>
     </form>
@@ -649,8 +634,12 @@ function PostDetailModal({
       return;
     }
     const { role } = getAuthMode();
-    if ((role === 'MERCHANT' || role === 'ADMIN') && mode !== 'TRAVELER') {
-      alert(role === 'ADMIN' ? "Admins cannot comment on posts. Only travelers can comment." : "Switch to traveler mode from your merchant dashboard to comment.");
+    if ((role === "MERCHANT" || role === "ADMIN") && mode !== "TRAVELER") {
+      alert(
+        role === "ADMIN"
+          ? "Admins cannot comment on posts. Only travelers can comment."
+          : "Switch to traveler mode from your merchant dashboard to comment."
+      );
       return;
     }
     if (!commentText.trim()) return;
@@ -703,8 +692,6 @@ function PostDetailModal({
       document.body.style.overflow = "auto";
     };
   }, []);
-
-  
 
   return (
     <>
@@ -949,4 +936,4 @@ function renderCategoryIcon(cat) {
   }
 }
 
-export default CommunityFeed;
+export default CommunityPage;

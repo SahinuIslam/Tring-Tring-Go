@@ -59,7 +59,8 @@ class Place(models.Model):
     opening_time = models.TimeField(null=True, blank=True)
     closing_time = models.TimeField(null=True, blank=True)
 
-    image_url = models.URLField(blank=True)
+    # upload real image files to media/places/
+    image = models.ImageField(upload_to="places/", blank=True, null=True)
 
     average_rating = models.FloatField(default=0.0)
     review_count = models.PositiveIntegerField(default=0)

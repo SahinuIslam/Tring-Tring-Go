@@ -1,5 +1,4 @@
-# travel/views.py
-
+# travel/api/views.py
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import csrf_exempt
 
@@ -20,9 +19,10 @@ from .serializers import (
     SavedPlaceSerializer,
     PlaceSerializer,
     ReviewSerializer,
-    MerchantProfileSerializer,  # you must define this in travel/serializers.py
+    MerchantProfileSerializer,  # ensure this exists in travel/serializers.py
     ServiceSerializer,
 )
+
 
 def _get_traveler_from_token(request):
     token = request.headers.get("X-User-Token")
@@ -48,7 +48,9 @@ def _get_traveler_from_token(request):
     traveler_profile = get_or_create_traveler_profile(account)
     return account, None
 
+
 # ---------- Saved places ----------
+
 
 @csrf_exempt
 @api_view(["GET"])
@@ -65,6 +67,7 @@ def list_saved_places(request):
     )
     serializer = SavedPlaceSerializer(saved_qs, many=True)
     return Response(serializer.data)
+
 
 @csrf_exempt
 @api_view(["POST"])
@@ -101,6 +104,7 @@ def add_saved_place(request):
     serializer = SavedPlaceSerializer(saved)
     return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+
 @csrf_exempt
 @api_view(["DELETE"])
 @permission_classes([AllowAny])
@@ -120,7 +124,9 @@ def remove_saved_place(request, pk):
     saved.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 # ---------- Reviews ----------
+
 
 @csrf_exempt
 @api_view(["GET"])
@@ -133,6 +139,22 @@ def my_reviews(request):
     qs = Review.objects.filter(traveler=traveler).select_related("place")
     serializer = ReviewSerializer(qs, many=True)
     return Response(serializer.data)
+
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def place_reviews(request, pk):
+    """
+    List all reviews for a given place (used by ExplorePage Reviews modal).
+    Public read: no auth required.
+    """
+    qs = Review.objects.filter(place_id=pk).select_related("traveler", "place").order_by(
+        "-created_at"
+    )
+    serializer = ReviewSerializer(qs, many=True)
+    return Response(serializer.data)
+
 
 @csrf_exempt
 @api_view(["POST"])
@@ -178,6 +200,7 @@ def create_review(request):
     out = ReviewSerializer(review)
     return Response(out.data, status=status.HTTP_201_CREATED)
 
+
 @csrf_exempt
 @api_view(["DELETE"])
 @permission_classes([AllowAny])
@@ -199,6 +222,7 @@ def delete_review(request, pk):
     place.recompute_rating()
 
     return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 @csrf_exempt
 @api_view(["PUT", "PATCH"])
@@ -244,7 +268,9 @@ def update_review(request, pk):
     serializer = ReviewSerializer(review)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
+
 # ---------- Places / Areas ----------
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -253,6 +279,7 @@ def list_places(request):
     serializer = PlaceSerializer(qs, many=True)
     return Response(serializer.data)
 
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def list_areas(request):
@@ -260,7 +287,9 @@ def list_areas(request):
     data = [{"id": a.id, "name": a.name} for a in qs]
     return Response(data)
 
+
 #----------- Service by area --------------
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -276,6 +305,7 @@ def list_services(request):
 
     serializer = ServiceSerializer(qs, many=True)
     return Response(serializer.data)
+
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
@@ -300,6 +330,7 @@ def create_service(request):
             status=status.HTTP_201_CREATED,
         )
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(["PUT", "PATCH", "DELETE"])
 @permission_classes([AllowAny])
@@ -337,7 +368,9 @@ def modify_service(request, pk):
     service.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+
 # ---------- Explore merchants by area ----------
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])

@@ -1,3 +1,4 @@
+# travel/serializers.py
 from rest_framework import serializers
 from accounts.models import MerchantProfile
 from .models import Place, SavedPlace, Review, Service
@@ -17,6 +18,7 @@ class PlaceSerializer(serializers.ModelSerializer):
     area_name = serializers.CharField(source="area.name", read_only=True)
     review_count = serializers.IntegerField(read_only=True)
     latest_reviews = serializers.SerializerMethodField()
+    image = serializers.ImageField(read_only=True)
 
     class Meta:
         model = Place
@@ -25,7 +27,7 @@ class PlaceSerializer(serializers.ModelSerializer):
             "name",
             "area_name",
             "category",
-            "image_url",
+            "image",
             "address",
             "average_rating",
             "review_count",
@@ -51,6 +53,9 @@ class SavedPlaceSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     place_name = serializers.CharField(source="place.name", read_only=True)
     place_area = serializers.CharField(source="place.area.name", read_only=True)
+    traveler_username = serializers.CharField(
+        source="traveler.user.username", read_only=True
+    )
 
     class Meta:
         model = Review
@@ -59,6 +64,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "place",
             "place_name",
             "place_area",
+            "traveler_username",
             "rating",
             "title",
             "text",

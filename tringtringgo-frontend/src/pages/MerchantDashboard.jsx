@@ -1,8 +1,6 @@
 // src/pages/MerchantDashboard.jsx
 import React, { useEffect, useState } from "react";
 
-
-
 /* ---------- helpers ---------- */
 
 function formatTimeToAMPM(timeStr) {
@@ -16,7 +14,6 @@ function formatTimeToAMPM(timeStr) {
 /* ---------- MerchantDashboard ---------- */
 
 function MerchantDashboard() {
-  // read user only once
   const storedUser = localStorage.getItem("ttg_user");
   const parsedUser = storedUser ? JSON.parse(storedUser) : null;
   const realRole = parsedUser?.role || "TRAVELER";
@@ -45,6 +42,20 @@ function MerchantDashboard() {
   const [saving, setSaving] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [requesting, setRequesting] = useState(false);
+
+  // global theme from Settings
+  const [theme, setTheme] = useState(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    return stored === "dark" || stored === "light" ? stored : "light";
+  });
+  const isDark = theme === "dark";
+
+  useEffect(() => {
+    const stored = localStorage.getItem("ttg_theme");
+    if (stored === "dark" || stored === "light") {
+      setTheme(stored);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -204,13 +215,13 @@ function MerchantDashboard() {
       setRequesting(true);
       setError("");
       setMessage("");
-  
+
       if (!isLoggedIn || realRole !== "MERCHANT") {
         throw new Error(
           "You must log in as a merchant to request verification."
         );
       }
-  
+
       const resp = await fetch(
         "http://127.0.0.1:8000/api/accounts/dashboard/merchant/request-verification/",
         {
@@ -218,9 +229,9 @@ function MerchantDashboard() {
           headers: { "X-User-Token": token },
         }
       );
-  
+
       const body = await resp.json().catch(() => ({}));
-  
+
       if (!resp.ok) {
         if (
           body.detail === "Verification request already pending." ||
@@ -231,8 +242,7 @@ function MerchantDashboard() {
         }
         throw new Error(body.detail || "Failed to request verification");
       }
-  
-      // success
+
       setMessage(body.message || "Verification request sent.");
       setData((prev) => ({
         ...prev,
@@ -248,15 +258,30 @@ function MerchantDashboard() {
       setRequesting(false);
     }
   }
-  
-  
+
+  const outerBgClass = isDark ? "bg-black bg-gradient" : "bg-body-tertiary";
+  const cardBgClass = isDark ? "bg-dark text-light" : "bg-white text-dark";
 
   if (loading) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <h2>Merchant Dashboard</h2>
-          <p>Loading your data...</p>
+      <div className={outerBgClass + " min-vh-100 d-flex align-items-center"}>
+        <div className="container">
+          <div className={`card shadow-lg border-0 rounded-4 ${cardBgClass}`}>
+            <div className="card-body p-4">
+              <div className="text-center py-5">
+                <div className="spinner-border text-primary mb-3" />
+                <h2 className="h4 mb-1">Merchant Dashboard</h2>
+                <p
+                  className={
+                    "mb-0 small " +
+                    (isDark ? "text-secondary" : "text-muted")
+                  }
+                >
+                  Loading your data…
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -264,10 +289,16 @@ function MerchantDashboard() {
 
   if (error || !data) {
     return (
-      <div className="dashboard-page">
-        <div className="dashboard-card">
-          <h2>Merchant Dashboard</h2>
-          <p style={{ color: "#b91c1c" }}>{error || "No data"}</p>
+      <div className={outerBgClass + " min-vh-100 d-flex align-items-center"}>
+        <div className="container">
+          <div className={`card shadow-lg border-0 rounded-4 ${cardBgClass}`}>
+            <div className="card-body p-4">
+              <h2 className="h4 mb-3">Merchant Dashboard</h2>
+              <div className="alert alert-danger mb-0" role="alert">
+                {error || "No data"}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -276,377 +307,533 @@ function MerchantDashboard() {
   const { profile, role, message: apiMessage } = data;
   const isVerified = profile.is_verified;
 
+  const verifiedBadgeClass = isVerified
+    ? "badge rounded-pill text-bg-success"
+    : profile.status === "PENDING"
+    ? "badge rounded-pill text-bg-warning"
+    : "badge rounded-pill text-bg-secondary";
+
   return (
-    <div className="dashboard-page flex justify-center p-4 min-h-screen bg-gray-50">
-      <style>{`
-        .dashboard-card {
-          width: 100%;
-          max-width: 900px;
-          background: white;
-          padding: 1.5rem;
-          border-radius: 0.75rem;
-          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
-        }
-        .stats-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-          gap: 1rem;
-          margin-bottom: 1.5rem;
-        }
-        .stat-card {
-          padding: 0.75rem;
-          background-color: #f9fafb;
-          border-radius: 0.5rem;
-          border: 1px solid #e5e7eb;
-        }
-        .stat-card h3 {
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: #6b7280;
-          margin-bottom: 0.15rem;
-        }
-        .stat-card p {
-          font-size: 1.1rem;
-          font-weight: 700;
-          color: #1f2937;
-        }
-        .primary-btn {
-          padding: 0.45rem 0.9rem;
-          border: none;
-          border-radius: 0.5rem;
-          background-color: #3b82f6;
-          color: white;
-          font-weight: 600;
-          cursor: pointer;
-          font-size: 0.85rem;
-        }
-        .primary-btn:disabled {
-          background-color: #93c5fd;
-          cursor: not-allowed;
-        }
-        .form-label {
-          display: block;
-          font-size: 0.8rem;
-          margin-bottom: 4px;
-        }
-        .form-input, .form-select, .form-textarea {
-          width: 100%;
-          padding: 0.45rem 0.7rem;
-          border-radius: 0.375rem;
-          border: 1px solid #d1d5db;
-          font-size: 0.85rem;
-        }
-      `}</style>
-
-      <div className="dashboard-card">
-
-        {parsedUser && realRole === "MERCHANT" && mode !== "TRAVELER" && (
-          <button
-            type="button"
-            className="primary-btn"
-            style={{ marginBottom: "0.75rem", marginRight: "0.5rem" }}
-            onClick={() => {
-              const updated = { ...parsedUser, mode: "TRAVELER" };
-              localStorage.setItem("ttg_user", JSON.stringify(updated));
-              window.location.href = "/traveler";
-            }}
-          >
-            Switch to traveler mode
-          </button>
-        )}
-
-        <h2 className="text-2xl font-bold text-gray-800">Merchant Dashboard</h2>
-        <p style={{ marginBottom: "0.75rem", color: "#4b5563" }}>{apiMessage}</p>
-
-        {message && (
+    <div className={outerBgClass + " min-vh-100 py-4"}>
+      <div className="container">
+        <div
+          className={
+            "card shadow-lg border-0 rounded-4 overflow-hidden " + cardBgClass
+          }
+        >
+          {/* Hero header */}
           <div
-            style={{
-              padding: "0.5rem 0.75rem",
-              marginBottom: "0.75rem",
-              background: "#d1fae5",
-              color: "#065f46",
-              borderRadius: "0.375rem",
-              fontSize: "0.85rem",
-            }}
+            className={
+              "px-4 pt-4 pb-3 bg-gradient " +
+              (isDark ? "bg-primary text-light" : "bg-primary text-white")
+            }
           >
-            {message}
-          </div>
-        )}
-        {error && (
-          <div
-            style={{
-              padding: "0.5rem 0.75rem",
-              marginBottom: "0.75rem",
-              background: "#fee2e2",
-              color: "#b91c1c",
-              borderRadius: "0.375rem",
-              fontSize: "0.85rem",
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        {/* Summary cards */}
-        <div className="stats-row">
-          <div className="stat-card">
-            <h3>Shop name</h3>
-            <p>{profile.shop_name}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Business area</h3>
-            <p>{profile.business_area}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Status</h3>
-            <p>{profile.status}</p>
-          </div>
-          <div className="stat-card">
-            <h3>Years in business</h3>
-            <p>{profile.years_in_business}</p>
-          </div>
-        </div>
-
-        {/* Profile details */}
-        <section style={{ marginTop: "0.5rem" }}>
-          <h3 className="text-xl font-semibold mb-2">Business details</h3>
-          <p>
-            <strong>Role:</strong> {role} (mode: {mode})
-          </p>
-          <p>
-            <strong>Business type:</strong> {profile.business_type || "Not set"}
-          </p>
-          <p>
-            <strong>Address:</strong> {profile.address || "Not set"}
-          </p>
-          <p>
-            <strong>Phone:</strong> {profile.phone || "Not set"}
-          </p>
-          <p>
-            <strong>Opening time:</strong> {formatTimeToAMPM(profile.opening_time)}
-          </p>
-          <p>
-            <strong>Closing time:</strong> {formatTimeToAMPM(profile.closing_time)}
-          </p>
-          <p>
-            <strong>Verified:</strong> {profile.is_verified ? "Yes" : "No"}
-          </p>
-          {profile.description && (
-            <p>
-              <strong>Description:</strong> {profile.description}
-            </p>
-          )}
-        </section>
-
-        {/* Request verification button */}
-        <div style={{ marginTop: "0.75rem", marginBottom: "0.75rem" }}>
-          <button
-            type="button"
-            className="primary-btn"
-            onClick={handleRequestVerification}
-            disabled={requesting}
-          >
-            {requesting ? "Requesting..." : "Request verification"}
-          </button>
-        </div>
-
-        {/* Edit business profile */}
-        <section style={{ marginTop: "0.75rem" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "0.5rem",
-            }}
-          >
-            <h3 className="text-xl font-semibold">Edit business profile</h3>
-            <button
-              type="button"
-              className="primary-btn"
-              style={{ padding: "0.35rem 0.9rem", fontSize: "0.8rem" }}
-              onClick={() => setShowEdit((prev) => !prev)}
-            >
-              {showEdit ? "Hide form" : "Edit profile"}
-            </button>
-          </div>
-
-          {showEdit && (
-            <form
-              onSubmit={handleSaveProfile}
-              style={{ maxWidth: "480px", display: "grid", gap: "0.6rem" }}
-            >
-              {/* Business info block */}
-              <div
-                style={{
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid #e5e7eb",
-                  background: "#f9fafb",
-                }}
-              >
-                <h4
-                  style={{
-                    marginBottom: "0.35rem",
-                    fontSize: "0.9rem",
-                    fontWeight: 600,
-                  }}
+            <div className="d-flex flex-wrap align-items-center justify-content-between">
+              <div className="mb-3 mb-lg-0">
+                <h1
+                  className={
+                    "h3 mb-1 " + (isDark ? "text-light" : "text-white")
+                  }
                 >
-                  Business Information
-                </h4>
+                  {profile.shop_name || "Your business"}
+                </h1>
+                <p
+                  className={
+                    "mb-1 small " +
+                    (isDark ? "text-light opacity-75" : "text-white-50")
+                  }
+                >
+                  {profile.address || "Set your address to appear in Explore"}
+                </p>
+                <div className="d-flex align-items-center gap-2 mt-1">
+                  <span className={verifiedBadgeClass}>
+                    {isVerified
+                      ? "Verified merchant"
+                      : profile.status === "PENDING"
+                      ? "Verification pending"
+                      : "Not verified"}
+                  </span>
+                  <span className="badge rounded-pill bg-light text-dark">
+                    {profile.business_type || "Business type not set"}
+                  </span>
+                </div>
+              </div>
 
-                <div style={{ display: "grid", gap: "0.5rem" }}>
-                  <div>
-                    <label className="form-label">Business name</label>
-                    <input
-                      className="form-input"
-                      name="shop_name"
-                      value={editForm.shop_name}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                    />
-                  </div>
+              <div className="text-end">
+                {parsedUser &&
+                  realRole === "MERCHANT" &&
+                  mode !== "TRAVELER" && (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-light rounded-pill mb-2"
+                      onClick={() => {
+                        const updated = { ...parsedUser, mode: "TRAVELER" };
+                        localStorage.setItem(
+                          "ttg_user",
+                          JSON.stringify(updated)
+                        );
+                        window.location.href = "/traveler";
+                      }}
+                    >
+                      <i className="bi bi-person-walking me-1" />
+                      Switch to traveler
+                    </button>
+                  )}
 
-                  <div>
-                    <label className="form-label">Business type</label>
-                    <input
-                      className="form-input"
-                      name="business_type"
-                      value={editForm.business_type}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                      placeholder="Restaurant, Cafe, Shop..."
-                    />
-                  </div>
+                <div>
+                  <button
+                    type="button"
+                    className="btn btn-light btn-sm rounded-pill"
+                    onClick={handleRequestVerification}
+                    disabled={requesting || isVerified}
+                  >
+                    {isVerified
+                      ? "Already verified"
+                      : requesting
+                      ? "Requesting..."
+                      : "Request verification"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                  <div>
-                    <label className="form-label">Business area</label>
-                    {areasLoading ? (
-                      <p style={{ fontSize: "0.8rem" }}>Loading areas...</p>
-                    ) : (
-                      <select
-                        className="form-select"
-                        name="business_area_id"
-                        value={editForm.business_area_id}
-                        onChange={handleEditChange}
-                        disabled={isVerified}
+          {/* Body */}
+          <div className="card-body p-4">
+            {apiMessage && (
+              <p
+                className={
+                  "small mb-3 " +
+                  (isDark ? "text-secondary" : "text-muted")
+                }
+              >
+                {apiMessage}
+              </p>
+            )}
+            {message && (
+              <div className="alert alert-success py-2 small" role="alert">
+                {message}
+              </div>
+            )}
+            {error && (
+              <div className="alert alert-danger py-2 small" role="alert">
+                {error}
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div className="row g-3 mb-4">
+              <div className="col-md-4">
+                <div className="card border-0 bg-primary-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-primary text-white rounded-circle p-3">
+                        <i className="bi bi-geo-alt-fill" />
+                      </span>
+                    </div>
+                    <div>
+                      <div
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
                       >
-                        <option value="">Select area…</option>
-                        {areas.map((a) => (
-                          <option key={a.id} value={a.id}>
-                            {a.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="form-label">Address</label>
-                    <input
-                      className="form-input"
-                      name="address"
-                      value={editForm.address}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                      placeholder="Street, area, city"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="form-label">Phone</label>
-                    <input
-                      className="form-input"
-                      name="phone"
-                      value={editForm.phone}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                      placeholder="+880..."
-                    />
+                        Area
+                      </div>
+                      <div className="fw-bold text-dark">
+                        {profile.business_area || "Not set"}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Timing + description */}
-              <div
-                style={{
-                  padding: "0.75rem",
-                  borderRadius: "0.5rem",
-                  border: "1px solid #e5e7eb",
-                  background: "#f9fafb",
-                }}
-              >
-                <h4
-                  style={{
-                    marginBottom: "0.35rem",
-                    fontSize: "0.9rem",
-                    fontWeight: 600,
-                  }}
+              <div className="col-md-4">
+                <div className="card border-0 bg-success-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-success text-white rounded-circle p-3">
+                        <i className="bi bi-clock-history" />
+                      </span>
+                    </div>
+                    <div>
+                      <div
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
+                      >
+                        Years in business
+                      </div>
+                      <div className="fw-bold text-dark">
+                        {profile.years_in_business || "0"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-md-4">
+                <div className="card border-0 bg-info-subtle h-100">
+                  <div className="card-body d-flex align-items-center">
+                    <div className="me-3">
+                      <span className="badge bg-info text-white rounded-circle p-3">
+                        <i className="bi bi-door-open-fill" />
+                      </span>
+                    </div>
+                    <div>
+                      <div
+                        className={
+                          "small text-uppercase " +
+                          (isDark ? "text-secondary" : "text-muted")
+                        }
+                      >
+                        Hours today
+                      </div>
+                      <div className="fw-bold text-dark">
+                        {formatTimeToAMPM(profile.opening_time)} –{" "}
+                        {formatTimeToAMPM(profile.closing_time)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Two-column layout */}
+            <div className="row g-4">
+              {/* Left: Overview */}
+              <div className="col-lg-5">
+                <div
+                  className={
+                    "card border-0 h-100 " +
+                    (isDark ? "bg-secondary text-light" : "bg-light")
+                  }
                 >
-                  Hours & Description
-                </h4>
+                  <div className="card-body">
+                    <h3
+                      className={
+                        "h6 text-uppercase mb-3 " +
+                        (isDark ? "text-light" : "text-muted")
+                      }
+                    >
+                      Business overview
+                    </h3>
+                    <dl className="row mb-0 small">
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Shop name
+                      </dt>
+                      <dd className="col-7 fw-semibold">
+                        {profile.shop_name || "Not set"}
+                      </dd>
 
-                <div style={{ display: "grid", gap: "0.5rem" }}>
-                  <div>
-                    <label className="form-label">Opening time</label>
-                    <input
-                      className="form-input"
-                      type="time"
-                      name="opening_time"
-                      value={editForm.opening_time}
-                      onChange={handleEditChange}
-                    />
-                  </div>
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Role / mode
+                      </dt>
+                      <dd className="col-7">
+                        {role}{" "}
+                        <span
+                          className={
+                            isDark ? "text-light opacity-75" : "text-muted"
+                          }
+                        >
+                          ({mode})
+                        </span>
+                      </dd>
 
-                  <div>
-                    <label className="form-label">Closing time</label>
-                    <input
-                      className="form-input"
-                      type="time"
-                      name="closing_time"
-                      value={editForm.closing_time}
-                      onChange={handleEditChange}
-                    />
-                  </div>
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Type
+                      </dt>
+                      <dd className="col-7">
+                        {profile.business_type || "Not set"}
+                      </dd>
 
-                  <div>
-                    <label className="form-label">Years in business</label>
-                    <input
-                      className="form-input"
-                      name="years_in_business"
-                      type="number"
-                      min="0"
-                      value={editForm.years_in_business}
-                      onChange={handleEditChange}
-                    />
-                  </div>
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Address
+                      </dt>
+                      <dd className="col-7">
+                        {profile.address || "Not set"}
+                      </dd>
 
-                  <div>
-                    <label className="form-label">Description</label>
-                    <textarea
-                      className="form-textarea"
-                      name="description"
-                      rows={3}
-                      value={editForm.description}
-                      onChange={handleEditChange}
-                      disabled={isVerified}
-                      placeholder="Tell travelers what makes your place special"
-                    />
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Phone
+                      </dt>
+                      <dd className="col-7">
+                        {profile.phone || "Not set"}
+                      </dd>
+
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Opening time
+                      </dt>
+                      <dd className="col-7">
+                        {formatTimeToAMPM(profile.opening_time)}
+                      </dd>
+
+                      <dt
+                        className={
+                          "col-5 " +
+                          (isDark ? "text-light" : "text-muted")
+                        }
+                      >
+                        Closing time
+                      </dt>
+                      <dd className="col-7">
+                        {formatTimeToAMPM(profile.closing_time)}
+                      </dd>
+
+                      {profile.description && (
+                        <>
+                          <dt
+                            className={
+                              "col-5 " +
+                              (isDark ? "text-light" : "text-muted")
+                            }
+                          >
+                            Description
+                          </dt>
+                          <dd className="col-7">{profile.description}</dd>
+                        </>
+                      )}
+                    </dl>
                   </div>
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="primary-btn"
-                disabled={saving}
-                style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}
-              >
-                {saving ? "Saving..." : "Save changes"}
-              </button>
-            </form>
-          )}
-        </section>
+              {/* Right: Edit form */}
+              <div className="col-lg-7">
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                  <h3
+                    className={
+                      "h6 text-uppercase mb-0 " +
+                      (isDark ? "text-secondary" : "text-muted")
+                    }
+                  >
+                    Edit profile
+                  </h3>
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm rounded-pill"
+                    onClick={() => setShowEdit((prev) => !prev)}
+                  >
+                    {showEdit ? "Hide form" : "Edit details"}
+                  </button>
+                </div>
+
+                {showEdit && (
+                  <form
+                    onSubmit={handleSaveProfile}
+                    className={
+                      "card border-0 shadow-sm " +
+                      (isDark ? "bg-dark text-light" : "bg-white")
+                    }
+                  >
+                    <div className="card-body">
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label className="form-label">Business name</label>
+                          <input
+                            className="form-control form-control-sm"
+                            name="shop_name"
+                            value={editForm.shop_name}
+                            onChange={handleEditChange}
+                            disabled={isVerified}
+                          />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label">Business type</label>
+                          <select
+                            className="form-select form-select-sm"
+                            name="business_type"
+                            value={editForm.business_type}
+                            onChange={handleEditChange}
+                            disabled={isVerified}
+                          >
+                            <option value="">Select type…</option>
+                            <option value="PARK">Park</option>
+                            <option value="MUSEUM">Museum</option>
+                            <option value="RESTAURANT">Restaurant</option>
+                            <option value="CAFE">Cafe</option>
+                            <option value="STREET_FOOD">Street Food</option>
+                            <option value="FAST_FOOD">Fast Food</option>
+                            <option value="BAKERY">Bakery</option>
+                            <option value="MALL">Mall</option>
+                            <option value="SHOP">Shop</option>
+                            <option value="LOCAL_MARKET">
+                              Local Market
+                            </option>
+                            <option value="SUPERMARKET">
+                              Supermarket
+                            </option>
+                            <option value="HISTORICAL_SITE">
+                              Historical Site
+                            </option>
+                            <option value="LANDMARK">Landmark</option>
+                            <option value="LAKE">Lake</option>
+                            <option value="BEACH">Beach</option>
+                            <option value="ZOO">Zoo</option>
+                            <option value="CINEMA">Cinema</option>
+                            <option value="AMUSEMENT_PARK">
+                              Amusement Park
+                            </option>
+                            <option value="SPORTS_COMPLEX">
+                              Sports Complex
+                            </option>
+                            <option value="HOTEL">Hotel</option>
+                            <option value="GUEST_HOUSE">
+                              Guest House
+                            </option>
+                            <option value="TRANSPORT">
+                              Transport Hub
+                            </option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label">Area</label>
+                          {areasLoading ? (
+                            <p className="text-muted small mb-0">
+                              Loading areas…
+                            </p>
+                          ) : (
+                            <select
+                              className="form-select form-select-sm"
+                              name="business_area_id"
+                              value={editForm.business_area_id}
+                              onChange={handleEditChange}
+                              disabled={isVerified}
+                            >
+                              <option value="">Select area…</option>
+                              {areas.map((a) => (
+                                <option key={a.id} value={a.id}>
+                                  {a.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label">Phone</label>
+                          <input
+                            className="form-control form-control-sm"
+                            name="phone"
+                            value={editForm.phone}
+                            onChange={handleEditChange}
+                            disabled={isVerified}
+                            placeholder="+880..."
+                          />
+                        </div>
+
+                        <div className="col-12">
+                          <label className="form-label">Address</label>
+                          <input
+                            className="form-control form-control-sm"
+                            name="address"
+                            value={editForm.address}
+                            onChange={handleEditChange}
+                            disabled={isVerified}
+                            placeholder="Street, area, city"
+                          />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label">Opening time</label>
+                          <input
+                            type="time"
+                            className="form-control form-control-sm"
+                            name="opening_time"
+                            value={editForm.opening_time}
+                            onChange={handleEditChange}
+                          />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label">Closing time</label>
+                          <input
+                            type="time"
+                            className="form-control form-control-sm"
+                            name="closing_time"
+                            value={editForm.closing_time}
+                            onChange={handleEditChange}
+                          />
+                        </div>
+
+                        <div className="col-md-6">
+                          <label className="form-label">
+                            Years in business
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            className="form-control form-control-sm"
+                            name="years_in_business"
+                            value={editForm.years_in_business}
+                            onChange={handleEditChange}
+                          />
+                        </div>
+
+                        <div className="col-12">
+                          <label className="form-label">Description</label>
+                          <textarea
+                            className="form-control form-control-sm"
+                            name="description"
+                            rows={3}
+                            value={editForm.description}
+                            onChange={handleEditChange}
+                            disabled={isVerified}
+                            placeholder="Tell travelers what makes your place special"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-3 d-flex justify-content-end">
+                        <button
+                          type="submit"
+                          className="btn btn-primary btn-sm rounded-pill"
+                          disabled={saving}
+                        >
+                          {saving ? "Saving..." : "Save changes"}
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
